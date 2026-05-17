@@ -2,6 +2,7 @@ import { offlineNamedCard, offlineRandomCard, offlineSearchCards } from './offli
 
 const API = 'https://api.scryfall.com';
 let lastRequest = 0;
+let offlineMode = false;
 const cache = new Map();
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 export class ScryfallError extends Error { constructor(message, status, endpoint) { super(message); this.status = status; this.endpoint = endpoint; } }
@@ -10,7 +11,14 @@ async function queuedFetch(url, { logger } = {}) {
   if (elapsed < 500) await wait(500 - elapsed);
   lastRequest = Date.now();
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const res = await fetch(url);
+    let res;
+    try {
+      res = await fetch(url);
+    } catch (error) {
+      offlineMode = true;
+      logger?.line(`Scryfall network unavailable for ${new URL(url).pathname}: ${error.message}`);
+      throw error;
+    }
     logger?.line(`Scryfall ${new URL(url).pathname} status=${res.status} attempt=${attempt + 1}`);
     if (res.ok) return res.json();
     if (![429, 500, 502, 503, 504].includes(res.status)) throw new ScryfallError(`Scryfall request failed ${res.status}`, res.status, url);
@@ -22,6 +30,7 @@ export async function scryfallGet(endpoint, params = {}, { logger } = {}) {
   const url = new URL(`${API}${endpoint}`);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) url.searchParams.set(k, v);
   const key = url.toString();
+  if (offlineMode) throw new ScryfallError('Scryfall offline mode active after network failure', 0, key);
   if (cache.has(key)) { logger?.line(`Scryfall cache hit ${endpoint}`); return cache.get(key); }
   logger?.line(`Scryfall request ${endpoint} ${url.searchParams.toString()}`);
   const data = await queuedFetch(key, { logger });

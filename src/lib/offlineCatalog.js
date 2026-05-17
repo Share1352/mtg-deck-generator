@@ -79,19 +79,20 @@ function manaCostFor(colors, creature) {
   return creature ? `{2}${pip || '{C}'}` : `{1}${pip || '{C}'}`;
 }
 export function makeOfflineCard(name, overrides = {}) {
-  const colors = overrides.color_identity || inferColors(name);
-  const isCreature = overrides.type_line ? /Creature/.test(overrides.type_line) : CREATURE_HINTS.test(name);
-  let type = isCreature ? 'Creature' : 'Instant';
-  if (!isCreature && ARTIFACT_HINTS.test(name)) type = /vehicle|copter|bankbuster|mech/i.test(name) ? 'Artifact — Vehicle' : 'Artifact';
-  if (!isCreature && ENCHANTMENT_HINTS.test(name)) type = /armor|rancor|mask|coronet|faith|boon|cartouche/i.test(name) ? 'Enchantment — Aura' : 'Enchantment';
-  if (/class/i.test(name)) type = 'Enchantment — Class';
+  const isKnownLand = /^(Evolving Wilds|Terramorphic Expanse|Conduit Pylons|Escape Tunnel)$/i.test(name);
+  const colors = overrides.color_identity || (isKnownLand ? [] : inferColors(name));
+  const isCreature = overrides.type_line ? /Creature/.test(overrides.type_line) : !isKnownLand && CREATURE_HINTS.test(name);
+  let type = isKnownLand ? 'Land' : isCreature ? 'Creature' : 'Instant';
+  if (!isKnownLand && !isCreature && ARTIFACT_HINTS.test(name)) type = /vehicle|copter|bankbuster|mech/i.test(name) ? 'Artifact — Vehicle' : 'Artifact';
+  if (!isKnownLand && !isCreature && ENCHANTMENT_HINTS.test(name)) type = /armor|rancor|mask|coronet|faith|boon|cartouche/i.test(name) ? 'Enchantment — Aura' : 'Enchantment';
+  if (!isKnownLand && /class/i.test(name)) type = 'Enchantment — Class';
   return {
     name,
     layout: 'normal',
     type_line: type,
     oracle_text: overrides.oracle_text || `${name} supports its deck theme in this offline Scryfall fallback card record.`,
-    mana_cost: overrides.mana_cost || manaCostFor(colors, isCreature),
-    cmc: overrides.cmc ?? (isCreature ? 3 : 2),
+    mana_cost: overrides.mana_cost ?? (isKnownLand ? '' : manaCostFor(colors, isCreature)),
+    cmc: overrides.cmc ?? (isKnownLand ? 0 : isCreature ? 3 : 2),
     color_identity: colors,
     colors,
     lang: 'en',
@@ -121,10 +122,10 @@ function queryTerms(query) {
   return terms.filter(Boolean).filter((term) => !['utility-land'].includes(term));
 }
 export function offlineSearchCards(query, { limit = 175 } = {}) {
-  const wantsLand = /type:land/i.test(query);
+  const wantsLand = /(?:^|\s)type:land/i.test(query);
   const rejectsLand = /-type:land/i.test(query);
-  const wantsBasic = /type:basic|!"(Plains|Island|Swamp|Mountain|Forest|Wastes|Snow-Covered [^"]+)"/i.test(query);
-  const wantsCreature = /type:creature/i.test(query);
+  const wantsBasic = /(?:^|\s)type:basic|!"(Plains|Island|Swamp|Mountain|Forest|Wastes|Snow-Covered [^"]+)"/i.test(query);
+  const wantsCreature = /(?:^|\s)type:creature/i.test(query);
   const rejectsCreature = /-type:creature/i.test(query);
   const allowed = parseAllowedColors(query);
   const terms = queryTerms(query);
@@ -141,7 +142,7 @@ export function offlineSearchCards(query, { limit = 175 } = {}) {
   });
   if (terms.length) {
     const exact = cards.filter((card) => terms.some((term) => `${card.name} ${card.type_line} ${card.oracle_text}`.toLowerCase().includes(term)));
-    if (exact.length >= Math.min(limit, 8)) cards = exact;
+    if (exact.length) cards = exact;
   }
   return cards.slice(0, limit);
 }

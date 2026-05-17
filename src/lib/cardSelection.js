@@ -119,11 +119,40 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       addIfValid(selected, card, colors, { section, source, reason: targetCreature === true ? 'creature/payoff target' : targetCreature === false ? 'non-creature support target' : 'theme match' }, logger, sources);
     }
   };
+  const addCoreUntil = (cards, source, targetCreature, stopWhen) => {
+    for (const card of shuffle(cards, rng)) {
+      if (selected.length >= 12 || stopWhen()) break;
+      if (targetCreature !== null && isCreature(card) !== targetCreature) continue;
+      addIfValid(selected, card, colors, {
+        section: 'Core',
+        source,
+        reason: targetCreature === true ? 'creature/payoff target' : targetCreature === false ? 'non-creature support target' : 'theme match',
+      }, logger, sources);
+    }
+  };
+  const coreCreatureCount = () => selected.slice(0, 12).filter(isCreature).length;
+  const coreNonCreatureCount = () => selected.slice(0, 12).filter((card) => !isCreature(card)).length;
   const legalEdhrec = edhrecCards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false }));
-  addMany(legalEdhrec, 'Core', 'EDHREC high synergy cache', true, 5);
-  addMany(legalEdhrec, 'Core', 'EDHREC high synergy cache', false, 12);
-  addMany(pool, 'Core', synergyNames.length ? 'EDHREC related/Scryfall fallback' : 'Scryfall otag/mechanical fallback', null, 12);
+  const coreFallbackSource = synergyNames.length ? 'EDHREC related/Scryfall fallback' : 'Scryfall otag/mechanical fallback';
+  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', true, () => coreCreatureCount() >= 5);
+  addCoreUntil(pool, coreFallbackSource, true, () => coreCreatureCount() >= 5);
+  if (coreCreatureCount() < 5) {
+    try {
+      const creatureSupport = await searchCards(`id<=${colors.join('')} game:paper lang:en type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback', true, () => coreCreatureCount() >= 5);
+    } catch (e) { logger?.error('core creature fallback', e); }
+  }
+  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', false, () => coreNonCreatureCount() >= 7);
+  addCoreUntil(pool, coreFallbackSource, false, () => coreNonCreatureCount() >= 7);
+  if (coreNonCreatureCount() < 7) {
+    try {
+      const supportSpells = await searchCards(`id<=${colors.join('')} game:paper lang:en -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(supportSpells, 'color-locked non-creature support fallback', false, () => coreNonCreatureCount() >= 7);
+    } catch (e) { logger?.error('core non-creature fallback', e); }
+  }
+  addCoreUntil(pool, coreFallbackSource, null, () => selected.length >= 12);
   if (selected.length < 12) logger?.line(`Core shortfall: selected ${selected.length}/12 after fallback hierarchy.`);
+  logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
   addMany(randomPool, 'Random all-time', 'Scryfall local shuffled theme pool', null, 23);
   if (selected.length < 23) {
