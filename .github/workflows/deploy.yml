@@ -32,33 +32,14 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Publish built site to gh-pages
-        env:
-          PAGES_WORKTREE: ${{ runner.temp }}/gh-pages-worktree
-        run: |
-          set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          rm -rf "$PAGES_WORKTREE"
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git fetch origin gh-pages --depth=1
-            git worktree add --detach "$PAGES_WORKTREE" origin/gh-pages
-          else
-            git worktree add --detach "$PAGES_WORKTREE"
-            git -C "$PAGES_WORKTREE" switch --orphan gh-pages
-          fi
-
-          find "$PAGES_WORKTREE" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a dist/. "$PAGES_WORKTREE"/
-          touch "$PAGES_WORKTREE/.nojekyll"
-
-          git -C "$PAGES_WORKTREE" add -A
-          if git -C "$PAGES_WORKTREE" diff --cached --quiet; then
-            echo "No built site changes to publish."
-            exit 0
-          fi
-
-          git -C "$PAGES_WORKTREE" commit -m "Deploy GitHub Pages"
-          git -C "$PAGES_WORKTREE" push origin HEAD:gh-pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
