@@ -1,0 +1,7 @@
+{
+  "name": "react-dom",
+  "version": "19.0.0-local",
+  "type": "module",
+  "main": "index.js",
+  "exports": { "./client": "./client.js", ".": "./index.js" }
+}

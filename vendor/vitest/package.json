@@ -1,0 +1,8 @@
+{
+  "name": "vitest",
+  "version": "3.0.0-local",
+  "type": "module",
+  "main": "index.js",
+  "bin": { "vitest": "./bin/vitest.js" },
+  "exports": { ".": "./index.js" }
+}
