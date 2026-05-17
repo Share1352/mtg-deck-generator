@@ -1,3 +1,5 @@
+import { offlineNamedCard, offlineRandomCard, offlineSearchCards } from './offlineCatalog.js';
+
 const API = 'https://api.scryfall.com';
 let lastRequest = 0;
 const cache = new Map();
@@ -27,17 +29,31 @@ export async function scryfallGet(endpoint, params = {}, { logger } = {}) {
   return data;
 }
 export async function searchCards(query, { unique = 'cards', order = 'released', dir = 'asc', limit = 175, logger } = {}) {
-  const all = [];
-  let data = await scryfallGet('/cards/search', { q: query, unique, order, dir }, { logger });
-  all.push(...(data.data || []));
-  while (data.has_more && data.next_page && all.length < limit) {
-    data = await queuedFetch(data.next_page, { logger });
+  try {
+    const all = [];
+    let data = await scryfallGet('/cards/search', { q: query, unique, order, dir }, { logger });
     all.push(...(data.data || []));
+    while (data.has_more && data.next_page && all.length < limit) {
+      data = await queuedFetch(data.next_page, { logger });
+      all.push(...(data.data || []));
+    }
+    logger?.line(`Scryfall query result count=${all.length} q=${query}`);
+    return all.slice(0, limit);
+  } catch (error) {
+    logger?.line(`Offline Scryfall fallback search used for q=${query}: ${error.message}`);
+    return offlineSearchCards(query, { limit });
   }
-  logger?.line(`Scryfall query result count=${all.length} q=${query}`);
-  return all.slice(0, limit);
 }
-export async function namedCard(name, { logger } = {}) { return scryfallGet('/cards/named', { exact: name }, { logger }); }
-export async function randomCard(query, { logger } = {}) { return scryfallGet('/cards/random', { q: query }, { logger }); }
-export async function catalog(name, { logger } = {}) { const data = await scryfallGet(`/catalog/${name}`, {}, { logger }); return data.data || []; }
+export async function namedCard(name, { logger } = {}) {
+  try { return await scryfallGet('/cards/named', { exact: name }, { logger }); }
+  catch (error) { logger?.line(`Offline Scryfall fallback named card used for ${name}: ${error.message}`); return offlineNamedCard(name); }
+}
+export async function randomCard(query, { logger } = {}) {
+  try { return await scryfallGet('/cards/random', { q: query }, { logger }); }
+  catch (error) { logger?.line(`Offline Scryfall fallback random card used for q=${query}: ${error.message}`); return offlineRandomCard(query); }
+}
+export async function catalog(name, { logger } = {}) {
+  try { const data = await scryfallGet(`/catalog/${name}`, {}, { logger }); return data.data || []; }
+  catch (error) { logger?.line(`Offline Scryfall fallback catalog used for ${name}: ${error.message}`); return []; }
+}
 export async function sets({ logger } = {}) { const data = await scryfallGet('/sets', {}, { logger }); return data.data || []; }
