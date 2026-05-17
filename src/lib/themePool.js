@@ -6,7 +6,7 @@ export const themeKey = (name) => normalizeTheme(name).toLowerCase();
 export function categorizeTheme(name) {
   const key = themeKey(name);
   if (['myr','mite','thrull','ox','mole','serpent','dragon','elf','goblin','zombie','cat','wizard','ninja','sliver','god'].includes(key)) return 'typal';
-  if (['auras','equipment','vehicles','aristocrats','spellslinger','blink','landfall','lifegain','tokens','artifacts','enchantress','graveyard'].includes(key)) return 'theme';
+  if (['auras','equipment','equip','vehicles','crew','aristocrats','spellslinger','blink','landfall','lifegain','tokens','artifacts','enchantress','graveyard'].includes(key)) return 'theme';
   return 'mechanic';
 }
 export async function loadStaticJson(path, fallback) {
