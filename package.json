@@ -1,0 +1,22 @@
+{
+  "name": "mtg-deck-generator",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest --run",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "file:vendor/@vitejs/plugin-react",
+    "vite": "file:vendor/vite",
+    "react": "file:vendor/react",
+    "react-dom": "file:vendor/react-dom",
+    "lucide-react": "file:vendor/lucide-react"
+  },
+  "devDependencies": {
+    "vitest": "file:vendor/vitest"
+  }
+}

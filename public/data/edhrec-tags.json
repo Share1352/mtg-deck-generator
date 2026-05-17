@@ -1,0 +1,21 @@
+[
+  { "name": "Aristocrats", "category": "theme" },
+  { "name": "Spellslinger", "category": "theme" },
+  { "name": "Blink", "category": "theme" },
+  { "name": "Lifegain", "category": "theme" },
+  { "name": "Landfall", "category": "theme" },
+  { "name": "Myr", "category": "typal" },
+  { "name": "Mite", "category": "typal" },
+  { "name": "Thrull", "category": "typal" },
+  { "name": "Ox", "category": "typal" },
+  { "name": "Mole", "category": "typal" },
+  { "name": "Serpent", "category": "typal" },
+  { "name": "Buyback", "category": "keyword" },
+  { "name": "Enchant", "category": "mechanic" },
+  { "name": "Equipment", "category": "theme" },
+  { "name": "Vehicles", "category": "theme" },
+  { "name": "Saddle", "category": "mechanic" },
+  { "name": "Celebration", "category": "mechanic" },
+  { "name": "Mobilize", "category": "mechanic" },
+  { "name": "Incubate", "category": "mechanic" }
+]
