@@ -3,11 +3,13 @@ import { namedCard, searchCards } from './scryfallClient.js';
 import { buildThemeQuery, getHostQuery } from './themeQueries.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
 import { colorIdentityWithin, isCreature, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
+import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
 import { shuffle } from './random.js';
 
 function addIfValid(selected, card, colors, source, logger, sources) {
   if (selected.length >= 23) return false;
   if (!isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })) return false;
+  if (hasUnsupportedSelfNameSynergy(card)) { logger?.line(`Skipped ${card.name}: direct named-card synergy needs extra copies, but this deck is singleton.`); return false; }
   if (!colorIdentityWithin(card, colors)) return false;
   if (selected.some((c) => sameCard(c, card))) return false;
   selected.push(card);
@@ -15,6 +17,73 @@ function addIfValid(selected, card, colors, source, logger, sources) {
   logger?.line(`${source.section} card added: ${card.name} / source: ${source.source} / reason: ${source.reason}`);
   return true;
 }
+
+function replacementIndex(selected, protectedCard) {
+  for (let i = selected.length - 1; i >= 12; i -= 1) if (!sameCard(selected[i], protectedCard)) return i;
+  for (let i = selected.length - 1; i >= 0; i -= 1) if (!sameCard(selected[i], protectedCard)) return i;
+  return -1;
+}
+
+function addReplacement(selected, card, colors, source, logger, sources, protectedCard = null) {
+  if (!isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })) return false;
+  if (hasUnsupportedSelfNameSynergy(card)) return false;
+  if (!colorIdentityWithin(card, colors)) return false;
+  if (selected.some((c) => sameCard(c, card))) return false;
+  const index = selected.length < 23 ? selected.length : replacementIndex(selected, protectedCard);
+  if (index < 0) return false;
+  const removed = selected[index];
+  selected[index] = card;
+  sources.set(card.name, source);
+  if (removed) sources.delete(removed.name);
+  logger?.line(`${source.section} card ${removed ? 'replaced' : 'added'}: ${card.name}${removed ? ` over ${removed.name}` : ''} / source: ${source.source} / reason: ${source.reason}`);
+  return true;
+}
+
+async function repairDirectSynergies(selected, pool, colors, logger, sources) {
+  for (let pass = 1; pass <= 8; pass += 1) {
+    const issues = directSynergyIssues(selected);
+    if (!issues.length) {
+      logger?.line(`Direct synergy validation passed after ${pass - 1} repair pass(es).`);
+      return;
+    }
+    const issue = issues[0];
+    logger?.line(`Direct synergy repair needed: ${issue.detail}`);
+    let repaired = false;
+    if (issue.type === 'named-card') {
+      const target = pool.find((card) => String(card?.name || '').toLowerCase() === String(issue.missingName || '').toLowerCase());
+      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct named-card synergy repair', reason: `required by ${issue.card.name}` }, logger, sources, issue.card);
+    }
+    if (issue.type === 'tutor-target') {
+      const target = pool.find((card) => issue.requirement.matches(card) && !sameCard(card, issue.card));
+      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct tutor-target synergy repair', reason: `search target for ${issue.card.name}` }, logger, sources, issue.card);
+      if (!repaired) {
+        try {
+          const fetched = await searchCards(`${issue.requirement.query} id<=${colors.join('')} game:paper lang:en`, { order: 'edhrec', limit: 40, logger });
+          const fetchedTarget = fetched.find((card) => issue.requirement.matches(card) && !sameCard(card, issue.card));
+          if (fetchedTarget) repaired = addReplacement(selected, fetchedTarget, colors, { section: 'Random all-time', source: 'Scryfall direct tutor-target synergy repair', reason: `guaranteed target for ${issue.card.name}` }, logger, sources, issue.card);
+        } catch (e) { logger?.error(`direct tutor-target repair for ${issue.card.name}`, e); }
+      }
+    }
+    if (!repaired) {
+      const index = selected.findIndex((card) => sameCard(card, issue.card));
+      if (index >= 0) {
+        logger?.line(`Removed ${issue.card.name}: ${issue.detail}.`);
+        selected.splice(index, 1);
+        sources.delete(issue.card.name);
+        repaired = true;
+      }
+    }
+    if (selected.length < 23) {
+      for (const card of pool) {
+        if (addIfValid(selected, card, colors, { section: 'Random all-time', source: 'direct synergy backfill', reason: 'replaced unsupported direct-synergy card' }, logger, sources)) break;
+      }
+    }
+    if (!repaired) break;
+  }
+  const remaining = directSynergyIssues(selected);
+  if (remaining.length) logger?.line(`Direct synergy validation remaining issues: ${remaining.map((issue) => issue.detail).join('; ')}`);
+}
+
 async function fetchNames(names, logger) {
   const cards = [];
   for (const name of names) {
@@ -69,6 +138,10 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     try { addMany(await searchCards(`id<=${colors.join('')} game:paper lang:en -type:land`, { order: 'random', limit: 100, logger }), 'Random all-time', 'narrow color-locked fallback', null, 23); } catch (e) { logger?.error('narrow fallback', e); }
   }
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name}; got ${selected.length}`);
+  await repairDirectSynergies(selected, pool, colors, logger, sources);
+  if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name} after direct synergy repair; got ${selected.length}`);
+  const directIssues = directSynergyIssues(selected);
+  if (directIssues.length) throw new Error(`Unresolved direct synergy issues: ${directIssues.map((issue) => issue.detail).join('; ')}`);
   const core = selected.slice(0, 12);
   const random = selected.slice(12, 23);
   logger?.line(`Selected 12 core cards: ${core.map((c) => c.name).join(', ')}`);
