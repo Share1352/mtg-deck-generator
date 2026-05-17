@@ -1,0 +1,6 @@
+{
+  "allowedFamilies": ["Lord of the Rings", "Final Fantasy", "Dungeons & Dragons"],
+  "allowedCodes": ["ltr", "ltc", "fin", "fic", "afr", "afc", "clb", "clu"],
+  "bannedFamilies": ["Transformers", "Warhammer 40,000", "Spider-Man", "Marvel", "Avatar", "Doctor Who", "Fallout"],
+  "bannedCodes": ["bot", "40k", "who", "pip", "tla", "tle", "ttla", "spm", "spe"]
+}
