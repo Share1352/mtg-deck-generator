@@ -1,11 +1,25 @@
 import { BASIC_BY_COLOR, SNOW_BASIC_BY_COLOR } from './constants.js';
 import { countManaPips } from './manaPips.js';
 import { calculateLandCount } from './manaValue.js';
-import { colorIdentityWithin, isPlayableMainDeckCard, uniqueByOracle } from './filters.js';
+import { colorIdentityWithin, isBasicLand, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
 import { namedCard, randomCard, searchCards } from './scryfallClient.js';
 import { getSynergyCardsForTag } from './edhrecClient.js';
 import { exactOracleQuery } from './themeQueries.js';
 import { themeKey } from './themePool.js';
+
+const GENERIC_STAPLE_LANDS = new Set(['Evolving Wilds', 'Terramorphic Expanse', 'Reliquary Tower']);
+const HARD_FALLBACK_NONBASICS = [
+  ['Ash Barrens', 'Basic landcycling.'],
+  ['Escape Tunnel', 'Add {C}. {T}, Sacrifice Escape Tunnel: Search your library for a basic land card.'],
+  ['War Room', 'Add {C}.'],
+  ['Roadside Reliquary', 'Add {C}.'],
+  ['Demolition Field', 'Add {C}.'],
+  ['Crystal Grotto', 'Add {C}.'],
+  ['Hidden Grotto', 'Add {C}.'],
+  ['Mirrex', 'Add {C}.'],
+  ['The Mycosynth Gardens', 'Add {C}.'],
+  ["Mishra's Factory", 'Add {C}.'],
+];
 const fallbackBasics = { Plains: ['SLD', '101'], Island: ['SLD', '102'], Swamp: ['SLD', '103'], Mountain: ['SLD', '104'], Forest: ['SLD', '105'], Wastes: ['OGW', '184'], 'Snow-Covered Plains': ['KHM', '276'], 'Snow-Covered Island': ['KHM', '278'], 'Snow-Covered Swamp': ['KHM', '280'], 'Snow-Covered Mountain': ['KHM', '282'], 'Snow-Covered Forest': ['KHM', '284'], 'Snow-Covered Wastes': ['MH1', '250'] };
 export function splitLandSlots(total) { return { basics: Math.ceil(total / 2), nonbasics: Math.floor(total / 2) }; }
 export function allocateBasics(colors, basicSlots, pips, snowRequired = false) {
@@ -67,25 +81,64 @@ async function edhrecLandCards(theme, logger) {
   }
   return cards;
 }
-async function getNonbasics({ colors, theme, count, existing = [], logger }) {
+function shuffle(cards, rng = Math.random) {
+  const out = [...cards];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+function playableNonbasicLand(card, colors) {
+  return !isBasicLand(card) && isPlayableMainDeckCard(card) && colorIdentityWithin(card, colors) && isUsefulFetchland(card, colors);
+}
+function appendUniqueLand(selected, card, colors, existing = []) {
+  if (!playableNonbasicLand(card, colors)) return false;
+  if ([...existing, ...selected].some((x) => sameCard(x, card))) return false;
+  selected.push(card);
+  return true;
+}
+function fallbackNonbasicPool(rng) {
+  return shuffle(HARD_FALLBACK_NONBASICS, rng).map(([name, oracle_text], index) => ({
+    name,
+    type_line: 'Land',
+    oracle_text,
+    lang: 'en',
+    color_identity: [],
+    oracle_id: `fallback-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${index}`,
+  }));
+}
+async function getNonbasics({ colors, theme, count, existing = [], logger, rng = Math.random }) {
   const colorQuery = colors.length ? `id<=${colors.join('')}` : 'id:c';
   const genericQuery = `type:land -type:basic ${colorQuery} game:paper lang:en`;
-  const desiredTheme = Math.min(count, Math.ceil(count * 0.75));
-  let cards = [];
-  try { cards = await edhrecLandCards(theme, logger); } catch (e) { logger?.error('EDHREC non-basic lands', e); }
+  const selected = [];
+  let themeCards = [];
+  try { themeCards = await edhrecLandCards(theme, logger); } catch (e) { logger?.error('EDHREC non-basic lands', e); }
   const directLandQuery = themeLandQuery(theme, colorQuery);
   if (directLandQuery) {
-    try { cards.push(...await searchCards(directLandQuery, { order: 'edhrec', limit: 50, logger })); } catch (e) { logger?.error('theme non-basic lands', e); }
+    try { themeCards.push(...await searchCards(directLandQuery, { order: 'edhrec', limit: 100, logger })); } catch (e) { logger?.error('theme non-basic lands', e); }
   }
-  let selected = uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c) && colorIdentityWithin(c, colors) && isUsefulFetchland(c, colors))).slice(0, desiredTheme);
-  if (selected.length < desiredTheme) logger?.line('Theme-synergistic non-basic lands exhausted; filling remaining land slots from EDHREC-ranked compatible non-basics.');
-  try { cards = await searchCards(genericQuery, { order: 'edhrec', limit: 100, logger }); } catch (e) { logger?.error('generic non-basic lands', e); cards = []; }
-  for (const c of cards) {
+  for (const c of uniqueByOracle(themeCards)) {
     if (selected.length >= count) break;
-    if ([...existing, ...selected].some((x) => x.oracle_id && x.oracle_id === c.oracle_id)) continue;
-    if (isPlayableMainDeckCard(c) && colorIdentityWithin(c, colors) && isUsefulFetchland(c, colors)) selected.push(c);
+    appendUniqueLand(selected, c, colors, existing);
   }
-  while (selected.length < count) selected.push({ name: 'Evolving Wilds', type_line: 'Land', oracle_text: 'Search your library for a basic land card.', lang: 'en', color_identity: [], oracle_id: `fallback-evolving-${selected.length}` });
+  if (selected.length < count) logger?.line(`Theme-synergistic non-basic lands exhausted after ${selected.length}/${count}; filling remaining land slots from random compatible non-basics.`);
+
+  let randomCards = [];
+  try { randomCards = await searchCards(genericQuery, { order: 'random', limit: Math.max(100, count * 12), logger }); } catch (e) { logger?.error('random generic non-basic lands', e); randomCards = []; }
+  const randomPool = shuffle(uniqueByOracle(randomCards), rng);
+  for (const c of randomPool.filter((card) => !GENERIC_STAPLE_LANDS.has(card.name))) {
+    if (selected.length >= count) break;
+    appendUniqueLand(selected, c, colors, existing);
+  }
+  for (const c of randomPool.filter((card) => GENERIC_STAPLE_LANDS.has(card.name))) {
+    if (selected.length >= count) break;
+    appendUniqueLand(selected, c, colors, existing);
+  }
+  for (const c of fallbackNonbasicPool(rng)) {
+    if (selected.length >= count) break;
+    appendUniqueLand(selected, c, colors, existing);
+  }
   return uniqueByOracle(selected).slice(0, count);
 }
 export async function buildManaBase(nonlands, colors, { theme = '', logger, rng = Math.random } = {}) {
