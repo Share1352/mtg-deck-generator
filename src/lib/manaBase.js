@@ -108,36 +108,60 @@ function fallbackNonbasicPool(rng) {
     oracle_id: `fallback-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${index}`,
   }));
 }
+export function selectNonbasicLandsFromPools({ themeCards = [], randomCards = [], colors = [], count = 0, existing = [], rng = Math.random, includeFallback = false }) {
+  const selected = [];
+  const themePool = shuffle(uniqueByOracle(themeCards), rng);
+  for (const c of themePool) {
+    if (selected.length >= count) break;
+    appendUniqueLand(selected, c, colors, existing);
+  }
+
+  const randomPool = shuffle(uniqueByOracle(randomCards), rng);
+  for (const c of randomPool.filter((card) => !GENERIC_STAPLE_LANDS.has(card.name))) {
+    if (selected.length >= count) break;
+    appendUniqueLand(selected, c, colors, existing);
+  }
+  if (includeFallback) {
+    for (const c of fallbackNonbasicPool(rng)) {
+      if (selected.length >= count) break;
+      appendUniqueLand(selected, c, colors, existing);
+    }
+  }
+  return uniqueByOracle(selected).slice(0, count);
+}
+
+async function randomCompatibleNonbasics(genericQuery, count, logger) {
+  const cards = [];
+  const maxAttempts = Math.min(24, Math.max(8, count * 3));
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      cards.push(await randomCard(genericQuery, { logger }));
+    } catch (e) {
+      logger?.error('random compatible non-basic land', e);
+      break;
+    }
+  }
+  return cards;
+}
+
 async function getNonbasics({ colors, theme, count, existing = [], logger, rng = Math.random }) {
   const colorQuery = colors.length ? `id<=${colors.join('')}` : 'id:c';
   const genericQuery = `type:land -type:basic ${colorQuery} game:paper lang:en`;
-  const selected = [];
   let themeCards = [];
   try { themeCards = await edhrecLandCards(theme, logger); } catch (e) { logger?.error('EDHREC non-basic lands', e); }
   const directLandQuery = themeLandQuery(theme, colorQuery);
   if (directLandQuery) {
     try { themeCards.push(...await searchCards(directLandQuery, { order: 'edhrec', limit: 100, logger })); } catch (e) { logger?.error('theme non-basic lands', e); }
   }
-  for (const c of uniqueByOracle(themeCards)) {
-    if (selected.length >= count) break;
-    appendUniqueLand(selected, c, colors, existing);
-  }
-  if (selected.length < count) logger?.line(`Theme-synergistic non-basic lands exhausted after ${selected.length}/${count}; filling remaining land slots from random compatible non-basics.`);
 
-  let randomCards = [];
-  try { randomCards = await searchCards(genericQuery, { order: 'random', limit: Math.max(100, count * 12), logger }); } catch (e) { logger?.error('random generic non-basic lands', e); randomCards = []; }
-  const randomPool = shuffle(uniqueByOracle(randomCards), rng);
-  for (const c of randomPool.filter((card) => !GENERIC_STAPLE_LANDS.has(card.name))) {
-    if (selected.length >= count) break;
-    appendUniqueLand(selected, c, colors, existing);
+  let selected = selectNonbasicLandsFromPools({ themeCards, colors, count, existing, rng });
+  if (selected.length < count) {
+    logger?.line(`Theme-synergistic non-basic lands exhausted after ${selected.length}/${count}; filling remaining land slots from truly random compatible non-basics.`);
+    const randomCards = await randomCompatibleNonbasics(genericQuery, count - selected.length, logger);
+    selected = selectNonbasicLandsFromPools({ themeCards: selected, randomCards, colors, count, existing, rng });
   }
-  for (const c of randomPool.filter((card) => GENERIC_STAPLE_LANDS.has(card.name))) {
-    if (selected.length >= count) break;
-    appendUniqueLand(selected, c, colors, existing);
-  }
-  for (const c of fallbackNonbasicPool(rng)) {
-    if (selected.length >= count) break;
-    appendUniqueLand(selected, c, colors, existing);
+  if (selected.length < count) {
+    selected = selectNonbasicLandsFromPools({ themeCards: selected, randomCards: fallbackNonbasicPool(rng), colors, count, existing, rng, includeFallback: true });
   }
   return uniqueByOracle(selected).slice(0, count);
 }

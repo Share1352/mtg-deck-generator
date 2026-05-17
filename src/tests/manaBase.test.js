@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateBasics, buildManaBase, isUsefulFetchland, splitLandSlots } from '../lib/manaBase.js';
+import { allocateBasics, buildManaBase, isUsefulFetchland, selectNonbasicLandsFromPools, splitLandSlots } from '../lib/manaBase.js';
 describe('mana base helpers', () => {
   it('splits lands 50/50 with extra basic', () => {
     expect(splitLandSlots(21)).toEqual({ basics: 11, nonbasics: 10 });
@@ -35,6 +35,22 @@ describe('mana base helpers', () => {
     expect(new Set(nonbasicNames).size).toBe(10);
     expect(nonbasicNames).not.toContain('Evolving Wilds');
     expect(nonbasicNames).not.toContain('Terramorphic Expanse');
+  });
+
+  it('uses theme-fitting non-basic lands before random compatible lands', () => {
+    const land = (name, color_identity = ['G'], oracle_text = 'Add mana.') => ({ name, type_line: 'Land', oracle_text, color_identity, oracle_id: `id-${name}`, lang: 'en' });
+    const picked = selectNonbasicLandsFromPools({
+      themeCards: [land('Theme Grove'), land('Off-color Theme', ['U'])],
+      randomCards: [land('Random Grove'), land('Evolving Wilds', [], 'Search your library for a basic land card.')],
+      colors: ['G'],
+      count: 2,
+      rng: () => 0.99,
+    }).map((card) => card.name);
+
+    expect(picked).toContain('Theme Grove');
+    expect(picked).toContain('Random Grove');
+    expect(picked).not.toContain('Off-color Theme');
+    expect(picked).not.toContain('Evolving Wilds');
   });
   it('rejects off-color fetchlands', () => {
     expect(isUsefulFetchland({ oracle_text: 'Search your library for a Mountain or Forest card.' }, ['U'])).toBe(false);

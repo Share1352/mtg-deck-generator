@@ -9,6 +9,8 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: '17-Year Cicadas', set: 'mbtest' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: "Ate-o'-Clock", set_type: 'memorabilia' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Jarsyl, Dark Age Scion', oracle_text: 'your commander' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Command Beacon', type_line: 'Land', oracle_text: 'Put your commander into your hand from the command zone.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Guild Artisan', type_line: 'Legendary Enchantment — Background', oracle_text: 'Commander creatures you own have an ability.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Aang, at the Crossroads', set: 'tla' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'The Tenth Doctor', set: 'who' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Vault Boy', set: 'pip' }))).toBe(false);

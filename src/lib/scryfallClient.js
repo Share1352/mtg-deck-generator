@@ -58,8 +58,16 @@ export async function namedCard(name, { logger } = {}) {
   catch (error) { logger?.line(`Offline Scryfall fallback named card used for ${name}: ${error.message}`); return offlineNamedCard(name); }
 }
 export async function randomCard(query, { logger } = {}) {
-  try { return await scryfallGet('/cards/random', { q: query }, { logger }); }
-  catch (error) { logger?.line(`Offline Scryfall fallback random card used for q=${query}: ${error.message}`); return offlineRandomCard(query); }
+  const url = new URL(`${API}/cards/random`);
+  url.searchParams.set('q', query);
+  try {
+    if (offlineMode) throw new ScryfallError('Scryfall offline mode active after network failure', 0, url.toString());
+    logger?.line(`Scryfall request /cards/random ${url.searchParams.toString()}`);
+    return await queuedFetch(url.toString(), { logger });
+  } catch (error) {
+    logger?.line(`Offline Scryfall fallback random card used for q=${query}: ${error.message}`);
+    return offlineRandomCard(query);
+  }
 }
 export async function catalog(name, { logger } = {}) {
   try { const data = await scryfallGet(`/catalog/${name}`, {}, { logger }); return data.data || []; }
