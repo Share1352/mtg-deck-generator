@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: pages
@@ -54,3 +55,40 @@ jobs:
           git commit -m "Deploy GitHub Pages"
           git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --force origin gh-pages
+      - name: Enable Pages branch source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          payload='{"source":{"branch":"gh-pages","path":"/"}}'
+
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/tmp/pages-site.json 2>/tmp/pages-site.err; then
+            echo "GitHub Pages site already exists; forcing source to gh-pages /."
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" --input - <<<"${payload}"
+          else
+            echo "GitHub Pages site does not exist yet; creating it from gh-pages /."
+            if ! gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" --input - <<<"${payload}"; then
+              echo "::error::The build was pushed to gh-pages, but GitHub refused to enable Pages with GITHUB_TOKEN. In repository Settings > Pages, set Source to 'Deploy from a branch', Branch to 'gh-pages', and Folder to '/ (root)', then rerun this workflow."
+              cat /tmp/pages-site.err || true
+              exit 1
+            fi
+          fi
+      - name: Verify live Pages site
+        run: |
+          set -euo pipefail
+          site_url="https://share1352.github.io/mtg-deck-generator/"
+
+          for attempt in {1..30}; do
+            status="$(curl -L -sS -o /tmp/pages-response.html -w '%{http_code}' "${site_url}" || true)"
+            if [ "${status}" = "200" ] && ! grep -q "There isn't a GitHub Pages site here" /tmp/pages-response.html; then
+              echo "GitHub Pages is live at ${site_url}"
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/30: ${site_url} returned ${status}; waiting for Pages propagation."
+            sleep 10
+          done
+
+          echo "::error::GitHub Pages did not become reachable at ${site_url}. Last response:"
+          cat /tmp/pages-response.html
+          exit 1
