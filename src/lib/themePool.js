@@ -11,12 +11,7 @@ export function categorizeTheme(name) {
 }
 export async function loadStaticJson(path, fallback) {
   try {
-    if (typeof window === 'undefined') {
-      const { readFile } = await import('node:fs/promises');
-      return JSON.parse(await readFile(new URL(`../../public/${path}`, import.meta.url), 'utf8'));
-    }
-    const base = import.meta.env?.BASE_URL || '/';
-    const res = await fetch(`${base}${path}`);
+    const res = await fetch(`${import.meta.env.BASE_URL}${path}`);
     if (!res.ok) throw new Error(`${res.status}`);
     return await res.json();
   } catch { return fallback; }

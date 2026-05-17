@@ -31,7 +31,7 @@ The repository includes `.github/workflows/deploy.yml`, which installs dependenc
 
 EDHREC high-synergy data is represented by a starter static cache in `public/data/edhrec-synergy-cache.json`. When a generated theme is not present in that cache, the debug log honestly states that the app is using Scryfall otag/mechanical fallback rather than pretending Scryfall popularity is EDHREC theme synergy.
 
-Generation uses the live Scryfall API when available. If Scryfall is blocked or rate-limited, the app falls back to a curated offline catalog so it can still forge a complete deck; the debug log records each offline fallback. Use **Copy whole log** after a deck is forged to troubleshoot card filtering, color choice, fallback choices, and mana base decisions.
+Generation uses the live Scryfall API, so network failures or rate limits can cause a generation retry. Use **Copy whole log** after a deck is forged to troubleshoot card filtering, color choice, fallback choices, and mana base decisions.
 
 ## Design notes
 
