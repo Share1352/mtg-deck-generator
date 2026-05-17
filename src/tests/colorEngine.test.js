@@ -21,4 +21,11 @@ describe('color engine', () => {
     expect(result.expanded).toBe(true);
     expect(result.colors.length).toBe(2);
   });
+  it('keeps colorless pools colorless before logged expansion', () => {
+    const colorless = [{ name: 'Myr A', color_identity: [] }, { name: 'Myr B', color_identity: [] }];
+    expect(chooseDeckColors(colorless, { rng: createRng(1) }).colors).toEqual([]);
+    const expanded = maybeExpandColors({ chosenColors: [], allCards: [...colorless, c('W'), c('U'), c('B')], needed: 5 });
+    expect(expanded.colors.length).toBeLessThan(4);
+    expect(expanded.expanded).toBe(true);
+  });
 });
