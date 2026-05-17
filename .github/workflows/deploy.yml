@@ -55,24 +55,6 @@ jobs:
           git commit -m "Deploy GitHub Pages"
           git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --force origin gh-pages
-      - name: Enable Pages branch source
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          payload='{"source":{"branch":"gh-pages","path":"/"}}'
-
-          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/tmp/pages-site.json 2>/tmp/pages-site.err; then
-            echo "GitHub Pages site already exists; forcing source to gh-pages /."
-            gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" --input - <<<"${payload}"
-          else
-            echo "GitHub Pages site does not exist yet; creating it from gh-pages /."
-            if ! gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" --input - <<<"${payload}"; then
-              echo "::error::The build was pushed to gh-pages, but GitHub refused to enable Pages with GITHUB_TOKEN. In repository Settings > Pages, set Source to 'Deploy from a branch', Branch to 'gh-pages', and Folder to '/ (root)', then rerun this workflow."
-              cat /tmp/pages-site.err || true
-              exit 1
-            fi
-          fi
       - name: Verify live Pages site
         run: |
           set -euo pipefail
