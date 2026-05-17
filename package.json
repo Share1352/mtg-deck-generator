@@ -7,7 +7,8 @@
     "dev": "vite",
     "test": "vitest --run",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "open:live": "node scripts/print-live-url.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "file:vendor/@vitejs/plugin-react",
@@ -18,5 +19,6 @@
   },
   "devDependencies": {
     "vitest": "file:vendor/vitest"
-  }
+  },
+  "homepage": "https://share1352.github.io/mtg-deck-generator/"
 }

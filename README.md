@@ -2,6 +2,16 @@
 
 A one-button Vite + React app that forges a small casual 1v1 Magic: The Gathering theme deck. It is **not Commander**: the app chooses a fair random theme, builds 23 non-land cards, adds 15-25 lands, displays card images, exports a decklist, and exposes a full debug log.
 
+
+## Open the hosted app
+
+After changes are merged to `main`, GitHub Actions publishes the static build to GitHub Pages:
+
+- Live app: <https://share1352.github.io/mtg-deck-generator/>
+- Auto-forge link: <https://share1352.github.io/mtg-deck-generator/?forge=1>
+
+The normal link opens on the single `FORGE DECK` button. Add `?forge=1`, `?autoforge=true`, or `?start` to the URL when you want the deck forge to begin as soon as the page loads. You can also run `npm run open:live` to print both links in a terminal.
+
 ## Run locally
 
 ```bash

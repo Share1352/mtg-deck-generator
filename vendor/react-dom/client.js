@@ -1,4 +1,4 @@
-import React, { __prepare, StrictMode } from 'react';
+import React, { __flushEffects, __prepare, StrictMode } from 'react';
 function setProps(node, props = {}) {
   for (const [key, value] of Object.entries(props)) {
     if (key === 'children' || value === undefined || value === null) continue;
@@ -25,6 +25,6 @@ function fragment(children = []) {
   return frag;
 }
 export function createRoot(container) {
-  const root = { element: null, render(element) { __prepare(root, element); container.replaceChildren(toNode(element)); } };
+  const root = { element: null, render(element) { __prepare(root, element); container.replaceChildren(toNode(element)); __flushEffects(); } };
   return root;
 }
