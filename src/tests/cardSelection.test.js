@@ -9,6 +9,7 @@ describe('theme queries and parasitic support', () => {
   it('injects hosts for parasitic mechanics', () => {
     expect(getHostQuery('Enchant')).toMatch(/creature/i);
     expect(getHostQuery('Equipment')).toMatch(/creature/i);
+    expect(getHostQuery('Equipment')).not.toMatch(/trample/i);
     expect(getHostQuery('Vehicles')).toMatch(/creature/i);
     expect(getHostQuery('Buyback')).toMatch(/instant or sorcery|cost less/i);
   });

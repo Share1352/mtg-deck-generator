@@ -2,8 +2,10 @@ import { BASIC_BY_COLOR, SNOW_BASIC_BY_COLOR } from './constants.js';
 import { countManaPips } from './manaPips.js';
 import { calculateLandCount } from './manaValue.js';
 import { colorIdentityWithin, isPlayableMainDeckCard, uniqueByOracle } from './filters.js';
-import { shuffle } from './random.js';
 import { namedCard, randomCard, searchCards } from './scryfallClient.js';
+import { getSynergyCardsForTag } from './edhrecClient.js';
+import { exactOracleQuery } from './themeQueries.js';
+import { themeKey } from './themePool.js';
 const fallbackBasics = { Plains: ['SLD', '101'], Island: ['SLD', '102'], Swamp: ['SLD', '103'], Mountain: ['SLD', '104'], Forest: ['SLD', '105'], Wastes: ['OGW', '184'], 'Snow-Covered Plains': ['KHM', '276'], 'Snow-Covered Island': ['KHM', '278'], 'Snow-Covered Swamp': ['KHM', '280'], 'Snow-Covered Mountain': ['KHM', '282'], 'Snow-Covered Forest': ['KHM', '284'], 'Snow-Covered Wastes': ['MH1', '250'] };
 export function splitLandSlots(total) { return { basics: Math.ceil(total / 2), nonbasics: Math.floor(total / 2) }; }
 export function allocateBasics(colors, basicSlots, pips, snowRequired = false) {
@@ -38,17 +40,47 @@ async function makeBasic(name, logger) {
     return { name, type_line: 'Basic Land', set, collector_number, lang: 'en', color_identity: [], oracle_id: `${name}-fallback` };
   }
 }
-async function getNonbasics({ colors, theme, count, existing = [], logger, rng = Math.random }) {
+
+function themeLandQuery(theme, colorQuery) {
+  const key = themeKey(theme);
+  if (!theme) return null;
+  if (key === 'equipment' || key === 'equip') {
+    return `(type:land (oracle:/\\bEquipment\\b/i OR oracle:/\\bartifact\\b/i OR oracle:/\\battach\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
+  }
+  if (key === 'auras' || key === 'enchant' || key === 'enchantress') {
+    return `(type:land (oracle:/\\bAura\\b/i OR oracle:/\\benchantment\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
+  }
+  if (key === 'vehicles' || key === 'crew') {
+    return `(type:land (oracle:/\\bVehicle\\b/i OR oracle:/\\bartifact\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
+  }
+  return `(type:land ${exactOracleQuery(theme)}) type:land -type:basic ${colorQuery} game:paper lang:en`;
+}
+
+async function edhrecLandCards(theme, logger) {
+  const names = await getSynergyCardsForTag(theme);
+  const cards = [];
+  for (const name of names) {
+    try {
+      const card = await namedCard(name, { logger });
+      if (/Land/.test(card?.type_line || '')) cards.push(card);
+    } catch (e) { logger?.error(`EDHREC land named card ${name}`, e); }
+  }
+  return cards;
+}
+async function getNonbasics({ colors, theme, count, existing = [], logger }) {
   const colorQuery = colors.length ? `id<=${colors.join('')}` : 'id:c';
-  const themeQuery = `(type:land (${theme ? `oracle:/\\b${theme}\\b/i OR` : ''} otag:utility-land))`;
   const genericQuery = `type:land -type:basic ${colorQuery} game:paper lang:en`;
-  const desiredTheme = Math.ceil(count * 0.3);
+  const desiredTheme = Math.min(count, Math.ceil(count * 0.75));
   let cards = [];
-  try { cards = await searchCards(`${themeQuery} ${genericQuery}`, { limit: 50, logger }); } catch (e) { logger?.error('theme non-basic lands', e); }
-  let selected = shuffle(cards.filter((c) => isPlayableMainDeckCard(c) && colorIdentityWithin(c, colors) && isUsefulFetchland(c, colors)), rng).slice(0, desiredTheme);
-  if (selected.length < desiredTheme) logger?.line('No theme-synergistic non-basic lands found or not enough; filling with compatible random non-basics.');
+  try { cards = await edhrecLandCards(theme, logger); } catch (e) { logger?.error('EDHREC non-basic lands', e); }
+  const directLandQuery = themeLandQuery(theme, colorQuery);
+  if (directLandQuery) {
+    try { cards.push(...await searchCards(directLandQuery, { order: 'edhrec', limit: 50, logger })); } catch (e) { logger?.error('theme non-basic lands', e); }
+  }
+  let selected = uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c) && colorIdentityWithin(c, colors) && isUsefulFetchland(c, colors))).slice(0, desiredTheme);
+  if (selected.length < desiredTheme) logger?.line('Theme-synergistic non-basic lands exhausted; filling remaining land slots from EDHREC-ranked compatible non-basics.');
   try { cards = await searchCards(genericQuery, { order: 'edhrec', limit: 100, logger }); } catch (e) { logger?.error('generic non-basic lands', e); cards = []; }
-  for (const c of shuffle(cards, rng)) {
+  for (const c of cards) {
     if (selected.length >= count) break;
     if ([...existing, ...selected].some((x) => x.oracle_id && x.oracle_id === c.oracle_id)) continue;
     if (isPlayableMainDeckCard(c) && colorIdentityWithin(c, colors) && isUsefulFetchland(c, colors)) selected.push(c);
