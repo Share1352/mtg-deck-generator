@@ -17,6 +17,8 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Marneus Calgar', set: '40k' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Optimus Prime', set: 'bot' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Spider-Man', set: 'spm' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Snazzy Aether Homunculus', border_color: 'silver' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Acornelia', security_stamp: 'acorn' }))).toBe(false);
   });
   it('allows specified valid categories', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Frodo', set: 'ltr' }))).toBe(true);
@@ -24,7 +26,6 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Minsc', set: 'afr' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Nearby Planet', type_line: 'Legendary Planeswalker — Test' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Dungeon Delver', oracle_text: 'Venture into the dungeon.' }))).toBe(true);
-    expect(isPlayableMainDeckCard(card({ name: 'Acornelia', security_stamp: 'acorn' }))).toBe(true);
   });
   it('classifies card types', () => {
     expect(isCreature(card({ type_line: 'Artifact Creature — Myr' }))).toBe(true);
