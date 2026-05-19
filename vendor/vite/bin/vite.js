@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 
 const cwd = process.cwd();
@@ -17,6 +18,25 @@ function walk(dir) {
   }
   return out;
 }
+function computeAssetsDir() {
+  const hash = createHash('sha256');
+  const inputs = [
+    ...walk(join(cwd, 'src')),
+    join(cwd, 'index.html'),
+    join(cwd, 'vendor', 'react', 'index.js'),
+    join(cwd, 'vendor', 'react-dom', 'client.js'),
+  ];
+  for (const file of inputs.sort()) {
+    if (existsSync(file) && statSync(file).isFile()) {
+      hash.update(relative(cwd, file));
+      hash.update('\0');
+      hash.update(readFileSync(file));
+      hash.update('\0');
+    }
+  }
+  return `assets-${hash.digest('hex').slice(0, 10)}`;
+}
+let assetsDir = 'assets';
 function replaceExt(file) { return file.replace(/\.jsx$/, '.js'); }
 function relImport(fromOutFile, targetOutFile) {
   let rel = relative(dirname(fromOutFile), targetOutFile).replaceAll('\\\\', '/').replaceAll('\\', '/');
@@ -24,8 +44,8 @@ function relImport(fromOutFile, targetOutFile) {
   return rel;
 }
 function vendorTarget(spec) {
-  if (spec === 'react') return join(outDir, 'assets', 'vendor', 'react.js');
-  if (spec === 'react-dom/client') return join(outDir, 'assets', 'vendor', 'react-dom-client.js');
+  if (spec === 'react') return join(outDir, assetsDir, 'vendor', 'react.js');
+  if (spec === 'react-dom/client') return join(outDir, assetsDir, 'vendor', 'react-dom-client.js');
   return null;
 }
 function transformJs(source, srcFile, outFile) {
@@ -36,7 +56,7 @@ function transformJs(source, srcFile, outFile) {
     if (spec.startsWith('.')) {
       const targetSrc = resolve(dirname(srcFile), spec);
       const withExt = existsSync(targetSrc) ? targetSrc : existsSync(`${targetSrc}.js`) ? `${targetSrc}.js` : existsSync(`${targetSrc}.jsx`) ? `${targetSrc}.jsx` : targetSrc;
-      const targetOut = join(outDir, 'assets', replaceExt(relative(cwd, withExt)));
+      const targetOut = join(outDir, assetsDir, replaceExt(relative(cwd, withExt)));
       return `from '${relImport(outFile, targetOut)}'`;
     }
     return match;
@@ -54,21 +74,22 @@ function copyRecursiveFiles(srcDir, destDir) {
 }
 function build() {
   rmSync(outDir, { recursive: true, force: true });
-  ensure(join(outDir, 'assets', 'src'));
+  assetsDir = computeAssetsDir();
+  ensure(join(outDir, assetsDir, 'src'));
   copyRecursiveFiles(join(cwd, 'public'), outDir);
   for (const file of walk(join(cwd, 'src'))) {
     const ext = extname(file);
     const rel = relative(cwd, file);
-    const dest = join(outDir, 'assets', replaceExt(rel));
+    const dest = join(outDir, assetsDir, replaceExt(rel));
     ensure(dirname(dest));
     if (ext === '.js' || ext === '.jsx') writeFileSync(dest, transformJs(readFileSync(file, 'utf8'), file, dest));
     else copyFileSync(file, dest);
   }
-  ensure(join(outDir, 'assets', 'vendor'));
-  copyFileSync(join(cwd, 'vendor', 'react', 'index.js'), join(outDir, 'assets', 'vendor', 'react.js'));
-  writeFileSync(join(outDir, 'assets', 'vendor', 'react-dom-client.js'), readFileSync(join(cwd, 'vendor', 'react-dom', 'client.js'), 'utf8').replace("from 'react'", "from './react.js'"));
+  ensure(join(outDir, assetsDir, 'vendor'));
+  copyFileSync(join(cwd, 'vendor', 'react', 'index.js'), join(outDir, assetsDir, 'vendor', 'react.js'));
+  writeFileSync(join(outDir, assetsDir, 'vendor', 'react-dom-client.js'), readFileSync(join(cwd, 'vendor', 'react-dom', 'client.js'), 'utf8').replace("from 'react'", "from './react.js'"));
   const html = readFileSync(join(cwd, 'index.html'), 'utf8')
-    .replace('<script type="module" src="/src/main.jsx"></script>', '<link rel="stylesheet" href="/mtg-deck-generator/assets/src/styles.css" />\n    <script type="module" src="/mtg-deck-generator/assets/src/main.js"></script>');
+    .replace('<script type="module" src="/src/main.jsx"></script>', `<link rel="stylesheet" href="/mtg-deck-generator/${assetsDir}/src/styles.css" />\n    <script type="module" src="/mtg-deck-generator/${assetsDir}/src/main.js"></script>`);
   writeFileSync(join(outDir, 'index.html'), html);
   console.log('vite v6.0.0-local building for production...');
   console.log('✓ built in local offline mode');
