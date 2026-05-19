@@ -38,6 +38,8 @@ export function isPlayableMainDeckCard(card, { allowLands = true, allowGoodstuff
   if (card.digital || card.lang && card.lang !== 'en') return false;
   if (card.set_type === 'alchemy' || card.set_type === 'memorabilia' || card.set_type === 'token') return false;
   if (card.set === 'mbtest' || card.set === 'cmb1' || card.set === 'cmb2' || card.set === 'ptg') return false;
+  if (card.border_color === 'silver') return false;
+  if (card.security_stamp === 'acorn') return false;
   if (card.name?.startsWith('A-')) return false;
   if (!allowLands && isLand(card)) return false;
   if (!allowGoodstuff && GOODSTUFF_NAMES.has(card.name)) return false;

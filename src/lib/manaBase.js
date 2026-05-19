@@ -45,7 +45,7 @@ export function isUsefulFetchland(card, colors) {
 }
 async function makeBasic(name, logger) {
   try {
-    const q = `!"${name}" include:extras unique:prints lang:en`;
+    const q = `!"${name}" include:extras -st:memorabilia -layout:art_series lang:en`;
     const card = await randomCard(q, { logger });
     return card;
   } catch (error) {
