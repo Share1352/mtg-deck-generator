@@ -54,7 +54,6 @@ const NONBASIC_LANDS = [
   ['Evolving Wilds', [], 'Search your library for a basic land card.'],
   ['Terramorphic Expanse', [], 'Search your library for a basic land card.'],
   ['Ash Barrens', [], 'Basic landcycling.'],
-  ['Command Beacon', [], 'Add {C}.'],
   ['Rogue\'s Passage', [], 'Target creature can\'t be blocked this turn.'],
   ['Karn\'s Bastion', [], 'Proliferate.'],
   ['Secluded Courtyard', [], 'Choose a creature type. Add one mana of any color to cast a creature spell of the chosen type.'],
