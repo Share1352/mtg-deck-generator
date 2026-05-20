@@ -1,43 +1,113 @@
-import { BANNED_THEMES, HARDCODED_THEMES } from './constants.js';
+import { BANNED_THEMES } from './constants.js';
 import { choice } from './random.js';
-const catalogFallback = ['Deathtouch','Defender','First Strike','Flash','Haste','Hexproof','Indestructible','Lifelink','Menace','Prowess','Reach','Cycling','Kicker','Flashback','Scry','Surveil','Cascade','Storm','Populate','Proliferate','Convoke','Infect','Mill','Extort','Evolve','Morph','Suspend','Dredge','Delve','Magecraft','Adventure','Foretell','Connive','Bargain','Craft','Evoke','Rebound','Overload','Escape','Boast','Cleave','Toxic','Dragon','Elf','Goblin','Zombie','Cat','Wizard','Ninja','Sliver','God'];
+import { catalog } from './scryfallClient.js';
+import { getAllEdhrecThemes } from './edhrecClient.js';
+
+const TYPAL_KEYS = new Set([
+  'myr', 'mite', 'thrull', 'ox', 'mole', 'serpent', 'dragon', 'elf', 'goblin',
+  'zombie', 'cat', 'wizard', 'ninja', 'sliver', 'god', 'angel', 'demon',
+  'human', 'soldier', 'spirit', 'merfolk', 'vampire', 'beast',
+]);
+const THEME_KEYS = new Set([
+  'auras', 'equipment', 'equip', 'vehicles', 'crew', 'aristocrats',
+  'spellslinger', 'blink', 'landfall', 'lifegain', 'tokens', 'artifacts',
+  'enchantress', 'graveyard', 'ramp',
+]);
+
 export const normalizeTheme = (name) => String(name || '').trim().replace(/\s+/g, ' ');
 export const themeKey = (name) => normalizeTheme(name).toLowerCase();
-export function categorizeTheme(name) {
+
+export function categorizeTheme(name, hint = '') {
   const key = themeKey(name);
-  if (['myr','mite','thrull','ox','mole','serpent','dragon','elf','goblin','zombie','cat','wizard','ninja','sliver','god'].includes(key)) return 'typal';
-  if (['auras','equipment','equip','vehicles','crew','aristocrats','spellslinger','blink','landfall','lifegain','tokens','artifacts','enchantress','graveyard'].includes(key)) return 'theme';
+  if (TYPAL_KEYS.has(key)) return 'typal';
+  if (THEME_KEYS.has(key)) return 'theme';
+  const hintLower = String(hint || '').toLowerCase();
+  if (/tribe|typal|creature/.test(hintLower)) return 'typal';
+  if (/theme/.test(hintLower)) return 'theme';
+  if (/keyword|mechanic|ability/.test(hintLower)) return 'mechanic';
   return 'mechanic';
 }
-export async function loadStaticJson(path, fallback) {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}${path}`);
-    if (!res.ok) throw new Error(`${res.status}`);
-    return await res.json();
-  } catch { return fallback; }
+
+const SCRYFALL_THEME_CATALOGS = [
+  { name: 'keyword-abilities', source: 'Scryfall keyword-abilities', category: 'mechanic' },
+  { name: 'keyword-actions', source: 'Scryfall keyword-actions', category: 'mechanic' },
+  { name: 'ability-words', source: 'Scryfall ability-words', category: 'mechanic' },
+  { name: 'creature-types', source: 'Scryfall creature-types', category: 'typal' },
+];
+
+export async function fetchScryfallThemeCatalogs({ logger } = {}) {
+  const out = [];
+  for (const { name, source, category } of SCRYFALL_THEME_CATALOGS) {
+    const items = await catalog(name, { logger });
+    logger?.line(`Scryfall catalog ${name}: ${items.length} entries`);
+    for (const item of items) out.push({ name: item, category, source });
+  }
+  return out;
 }
-export async function buildThemePool({ edhrecTags = [], scryfallCatalogs = [], banned = BANNED_THEMES } = {}) {
-  const candidates = [];
-  for (const t of edhrecTags) candidates.push({ name: t.name || t, category: t.category || categorizeTheme(t.name || t), sources: ['EDHREC cache'] });
-  for (const t of scryfallCatalogs) candidates.push({ name: t, category: categorizeTheme(t), sources: ['Scryfall catalog'] });
-  for (const t of HARDCODED_THEMES) candidates.push({ name: t, category: categorizeTheme(t), sources: ['hardcoded safety list'] });
-  for (const t of catalogFallback) candidates.push({ name: t, category: categorizeTheme(t), sources: ['Scryfall catalog fallback'] });
+
+export async function fetchEdhrecThemes({ logger } = {}) {
+  const themes = await getAllEdhrecThemes({ logger });
+  return themes.map((t) => ({ name: t.name, category: categorizeTheme(t.name, t.category), source: t.source }));
+}
+
+export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
   const bannedSet = new Set(banned.map(themeKey));
   const map = new Map();
   let bannedCount = 0;
-  for (const item of candidates) {
+  for (const item of entries) {
     const name = normalizeTheme(item.name);
     if (!name) continue;
     const key = themeKey(name);
     if (bannedSet.has(key)) { bannedCount += 1; continue; }
     const existing = map.get(key);
-    if (existing) existing.sources = [...new Set([...existing.sources, ...item.sources])];
-    else map.set(key, { ...item, name });
+    if (existing) {
+      existing.sources = [...new Set([...existing.sources, item.source])];
+    } else {
+      map.set(key, {
+        name,
+        category: item.category || categorizeTheme(name),
+        sources: [item.source],
+      });
+    }
   }
-  return { themes: [...map.values()].sort((a, b) => a.name.localeCompare(b.name)), bannedCount };
+  return {
+    themes: [...map.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    bannedCount,
+  };
 }
-export function pickUniformTheme(themes, rng = Math.random) { return choice(themes, rng); }
-export async function getFrontendThemePool() {
-  const edhrecTags = await loadStaticJson('data/edhrec-tags.json', []);
-  return buildThemePool({ edhrecTags });
+
+export function pickUniformTheme(themes, rng = Math.random) {
+  if (!themes?.length) throw new Error('Cannot pick theme: theme pool is empty');
+  return choice(themes, rng);
+}
+
+export async function getFrontendThemePool({ logger } = {}) {
+  const entries = [];
+  const sourceErrors = [];
+
+  try {
+    const edhrec = await fetchEdhrecThemes({ logger });
+    entries.push(...edhrec);
+    logger?.line(`Loaded ${edhrec.length} themes from EDHREC.`);
+  } catch (error) {
+    sourceErrors.push(`EDHREC themes unavailable: ${error.message}`);
+    logger?.line(`EDHREC themes unavailable: ${error.message}`);
+  }
+
+  try {
+    const catalogs = await fetchScryfallThemeCatalogs({ logger });
+    entries.push(...catalogs);
+    logger?.line(`Loaded ${catalogs.length} keyword/mechanic/type entries from Scryfall catalogs.`);
+  } catch (error) {
+    sourceErrors.push(`Scryfall catalogs unavailable: ${error.message}`);
+    logger?.line(`Scryfall catalogs unavailable: ${error.message}`);
+  }
+
+  if (!entries.length) {
+    throw new Error(
+      `Cannot build a theme pool: no online theme source is reachable. ${sourceErrors.join(' | ')}`,
+    );
+  }
+
+  return mergeThemeSources(entries);
 }

@@ -6,6 +6,22 @@ import GenerateButton from './components/GenerateButton.jsx';
 import ProgressBar from './components/ProgressBar.jsx';
 import DeckView from './components/DeckView.jsx';
 const h = React.createElement;
+
+function errorHeadline(error) {
+  const msg = error?.message || '';
+  if (/Online theme sources are unreachable/i.test(msg)) return 'Online card databases unreachable';
+  if (/Online card database is unreachable/i.test(msg)) return 'Online card databases unreachable';
+  return 'The forge fizzled';
+}
+
+function errorBlurb(error) {
+  const msg = error?.message || 'Unknown error';
+  if (/Online theme sources are unreachable/i.test(msg) || /Online card database is unreachable/i.test(msg)) {
+    return 'EDHREC and Scryfall must be reachable to build a deck. The app does not use any offline card data. Check your connection and try again.';
+  }
+  return msg.split('\n')[0];
+}
+
 export default function App() {
   const [state, setState] = useState('idle');
   const [progress, setProgress] = useState(0);
@@ -26,6 +42,12 @@ export default function App() {
   }, [autoForge]);
   if (state === 'idle') return h('main', { className: 'single-button' }, h(GenerateButton, { onClick: forge }));
   if (state === 'loading') return h('main', { className: 'single-button' }, h(ProgressBar, { progress, joke }));
-  if (state === 'error') return h('main', { className: 'error' }, h('h1', null, 'The forge fizzled'), h('p', null, error.message), h(GenerateButton, { onClick: forge }, 'TRY AGAIN'));
+  if (state === 'error') return h(
+    'main',
+    { className: 'error' },
+    h('h1', null, errorHeadline(error)),
+    h('p', null, errorBlurb(error)),
+    h(GenerateButton, { onClick: forge }, 'TRY AGAIN'),
+  );
   return h(DeckView, { deck, onAgain: forge });
 }
