@@ -59,13 +59,13 @@ function themeLandQuery(theme, colorQuery) {
   const key = themeKey(theme);
   if (!theme) return null;
   if (key === 'equipment' || key === 'equip') {
-    return `(type:land (oracle:/\\bEquipment\\b/i OR oracle:/\\bartifact\\b/i OR oracle:/\\battach\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
+    return `(type:land oracle:/\\bEquipment\\b/i) type:land -type:basic ${colorQuery} game:paper lang:en`;
   }
   if (key === 'auras' || key === 'enchant' || key === 'enchantress') {
     return `(type:land (oracle:/\\bAura\\b/i OR oracle:/\\benchantment\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
   }
   if (key === 'vehicles' || key === 'crew') {
-    return `(type:land (oracle:/\\bVehicle\\b/i OR oracle:/\\bartifact\\b/i)) type:land -type:basic ${colorQuery} game:paper lang:en`;
+    return `(type:land oracle:/\\bVehicle\\b/i) type:land -type:basic ${colorQuery} game:paper lang:en`;
   }
   return `(type:land ${exactOracleQuery(theme)}) type:land -type:basic ${colorQuery} game:paper lang:en`;
 }

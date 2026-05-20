@@ -40,4 +40,8 @@ export const GOODSTUFF_NAMES = new Set([
   'Fierce Guardianship','Deflecting Swat','Deadly Rollick','Craterhoof Behemoth',
   'Heroic Intervention','Swords to Plowshares','Generous Gift','Psychosis Crawler','Rampaging Baloths'
 ]);
-export const BANNED_CARD_NAMES = new Set(['Command Tower']);
+export const BANNED_CARD_NAMES = new Set([
+  'Command Tower',
+  'Command Beacon',
+  'Path of Ancestry',
+]);

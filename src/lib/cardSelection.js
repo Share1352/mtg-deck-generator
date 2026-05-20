@@ -1,6 +1,6 @@
 import { canonicalSynergyTag, getSynergyCardsForTag } from './edhrecClient.js';
 import { namedCard, searchCards } from './scryfallClient.js';
-import { buildThemeQuery, getHostQuery } from './themeQueries.js';
+import { buildThemeQuery, exactOracleQuery, getHostQuery } from './themeQueries.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
 import { colorIdentityWithin, isCreature, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
@@ -139,20 +139,34 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const coreNonCreatureCount = () => selected.slice(0, 12).filter((card) => !isCreature(card)).length;
   const legalEdhrec = edhrecCards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false }));
   const coreFallbackSource = synergyNames.length ? 'Scryfall EDHREC-ordered theme fallback' : 'Scryfall otag/mechanical fallback';
+  const themeOracle = exactOracleQuery(name);
+  const colorLock = `id<=${colors.join('')} game:paper lang:en`;
   addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', true, () => coreCreatureCount() >= 5);
   addCoreUntil(pool, coreFallbackSource, true, () => coreCreatureCount() >= 5);
   if (coreCreatureCount() < 5) {
     try {
-      const creatureSupport = await searchCards(`id<=${colors.join('')} game:paper lang:en type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback', true, () => coreCreatureCount() >= 5);
+      const themedCreatures = await searchCards(`${themeOracle} ${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(themedCreatures, 'theme-oracle creature/payoff fallback', true, () => coreCreatureCount() >= 5);
+    } catch (e) { logger?.error('theme-oracle core creature fallback', e); }
+  }
+  if (coreCreatureCount() < 5) {
+    try {
+      const creatureSupport = await searchCards(`${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', true, () => coreCreatureCount() >= 5);
     } catch (e) { logger?.error('core creature fallback', e); }
   }
   addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', false, () => coreNonCreatureCount() >= 7);
   addCoreUntil(pool, coreFallbackSource, false, () => coreNonCreatureCount() >= 7);
   if (coreNonCreatureCount() < 7) {
     try {
-      const supportSpells = await searchCards(`id<=${colors.join('')} game:paper lang:en -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(supportSpells, 'color-locked non-creature support fallback', false, () => coreNonCreatureCount() >= 7);
+      const themedSupport = await searchCards(`${themeOracle} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(themedSupport, 'theme-oracle non-creature support fallback', false, () => coreNonCreatureCount() >= 7);
+    } catch (e) { logger?.error('theme-oracle core non-creature fallback', e); }
+  }
+  if (coreNonCreatureCount() < 7) {
+    try {
+      const supportSpells = await searchCards(`${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(supportSpells, 'color-locked non-creature support fallback (last resort)', false, () => coreNonCreatureCount() >= 7);
     } catch (e) { logger?.error('core non-creature fallback', e); }
   }
   addCoreUntil(pool, coreFallbackSource, null, () => selected.length >= 12);
@@ -169,8 +183,15 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     }
   }
   if (selected.length < 23) {
-    logger?.line(`Narrow theme-adjacent fallback needed: ${selected.length}/23.`);
-    try { addMany(await searchCards(`id<=${colors.join('')} game:paper lang:en -type:land`, { order: 'edhrec', limit: 100, logger }), 'Random all-time', 'narrow color-locked fallback', null, 23); } catch (e) { logger?.error('narrow fallback', e); }
+    logger?.line(`Theme-oracle broadened fallback needed: ${selected.length}/23.`);
+    try {
+      const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 175, logger });
+      addMany(broaderTheme, 'Random all-time', 'theme-oracle broadened fallback', null, 23);
+    } catch (e) { logger?.error('theme-oracle broadened fallback', e); }
+  }
+  if (selected.length < 23) {
+    logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);
+    try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 100, logger }), 'Random all-time', 'narrow color-locked fallback (last resort)', null, 23); } catch (e) { logger?.error('narrow fallback', e); }
   }
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name}; got ${selected.length}`);
   await repairDirectSynergies(selected, pool, colors, logger, sources);

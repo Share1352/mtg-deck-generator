@@ -26,4 +26,18 @@ describe('deck generator', () => {
       expect(selection.core.length - coreCreatures.length).toBeGreaterThanOrEqual(7);
     }
   });
+
+  it('never includes commander-only cards across many themes', async () => {
+    globalThis.fetch = async () => { throw new Error('network disabled for commander-card exclusion test'); };
+    const forbiddenNames = new Set(['Command Tower', 'Command Beacon', 'Path of Ancestry']);
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const deck = await generateDeck({ seed, onProgress: () => {} });
+      for (const card of [...deck.nonlands, ...deck.lands]) {
+        expect(forbiddenNames.has(card.name)).toBe(false);
+        const oracle = String(card.oracle_text || '').toLowerCase();
+        expect(/\bcommander(?:s|'s)?\b/.test(oracle)).toBe(false);
+        expect(/command zone/.test(oracle)).toBe(false);
+      }
+    }
+  });
 });
