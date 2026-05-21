@@ -1,7 +1,7 @@
 import { BASIC_BY_COLOR, SNOW_BASIC_BY_COLOR } from './constants.js';
 import { countManaPips } from './manaPips.js';
 import { calculateLandCount } from './manaValue.js';
-import { colorIdentityWithin, isBasicLand, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
+import { colorIdentityWithin, isBasicLand, isCommanderOnly, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
 import { namedCard, randomCard, searchCards, ScryfallError } from './scryfallClient.js';
 import { getSynergyCardsForTag, EdhrecError } from './edhrecClient.js';
 
@@ -118,10 +118,19 @@ export function selectNonbasicLandsFromPools({ themeCards = [], randomCards = []
 
 async function randomCompatibleNonbasics(genericQuery, count, logger) {
   const cards = [];
-  const maxAttempts = Math.min(24, Math.max(8, count * 3));
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    cards.push(await randomCard(genericQuery, { logger }));
+  const seen = new Set();
+  const targetUnique = Math.max(count * 3, count + 10);
+  const maxAttempts = Math.min(60, Math.max(targetUnique * 2, 32));
+  let attempts = 0;
+  while (attempts < maxAttempts && seen.size < targetUnique) {
+    attempts += 1;
+    const card = await randomCard(genericQuery, { logger });
+    const id = card?.oracle_id || card?.name;
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    cards.push(card);
   }
+  logger?.line(`Random nonbasic land sampling: ${attempts} Scryfall /cards/random calls, ${seen.size} unique candidates collected for ${count} slot(s).`);
   return cards;
 }
 
@@ -142,6 +151,11 @@ async function getNonbasics({ colors, theme, count, existing = [], logger, rng =
     logger?.line(`Theme-synergistic non-basic lands exhausted after ${selected.length}/${count}; filling remaining land slots from truly random compatible non-basics.`);
     const randomCards = await randomCompatibleNonbasics(genericQuery, count - selected.length, logger);
     selected = selectNonbasicLandsFromPools({ themeCards: selected, randomCards, colors, count, existing, rng });
+  }
+  const dropped = selected.filter((c) => isCommanderOnly(c));
+  if (dropped.length) {
+    logger?.line(`Dropped commander-only lands that slipped past pool filtering: ${dropped.map((c) => c.name).join(', ')}`);
+    selected = selected.filter((c) => !isCommanderOnly(c));
   }
   if (selected.length < count) {
     throw new Error(

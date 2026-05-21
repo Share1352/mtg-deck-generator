@@ -11,6 +11,8 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Jarsyl, Dark Age Scion', oracle_text: 'your commander' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Command Beacon', type_line: 'Land', oracle_text: 'Put your commander into your hand from the command zone.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Command Beacon', type_line: 'Land', oracle_text: 'Add {C}.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'command beacon', type_line: 'Land', oracle_text: 'Add {C}.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: '  Command   Beacon ', type_line: 'Land', oracle_text: 'Add {C}.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Path of Ancestry', type_line: 'Land', oracle_text: 'Add {C}.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Command Tower', type_line: 'Land', oracle_text: 'Add one mana of any color.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Guild Artisan', type_line: 'Legendary Enchantment — Background', oracle_text: 'Commander creatures you own have an ability.' }))).toBe(false);
