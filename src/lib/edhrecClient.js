@@ -64,6 +64,7 @@ async function edhrecFetch(path, { logger } = {}) {
       return data;
     }
     if (res.status === 404) throw new EdhrecError(`EDHREC 404 for ${path}`, 404, url);
+    if (res.status === 403) throw new EdhrecError(`EDHREC unavailable (403) for ${path}`, 403, url);
     if (!TRANSIENT_STATUS.has(res.status)) throw new EdhrecError(`EDHREC non-retryable status ${res.status} for ${path}`, res.status, url);
     lastError = new EdhrecError(`EDHREC transient ${res.status} for ${path}`, res.status, url);
     if (attempt < retry.maxAttempts) {

@@ -90,6 +90,17 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
   if (remaining.length) logger?.line(`Direct synergy validation remaining issues: ${remaining.map((issue) => issue.detail).join('; ')}`);
 }
 
+function validateThemeSynergySources(selected, sources) {
+  const invalid = [];
+  for (const card of selected.slice(0, 12)) {
+    const src = sources.get(card.name)?.source || '';
+    if (!src.includes('EDHREC') && !src.includes('direct theme match') && !src.includes('broad oracle match')) {
+      invalid.push(`${card.name} (${src || 'unknown source'})`);
+    }
+  }
+  return invalid;
+}
+
 async function fetchNames(names, logger) {
   const cards = [];
   for (const name of names) {
@@ -121,16 +132,26 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const name = theme.name || theme;
   const synergyTag = canonicalSynergyTag(name);
   let synergyNames = [];
+  let edhrecAvailable = true;
   try {
     synergyNames = await getSynergyCardsForTag(name, { logger });
   } catch (error) {
     if (isHardOutage(error)) throw error;
-    logger?.line(`EDHREC synergy lookup failed for ${name}: ${error.message}. Falling back to Scryfall otag/mechanical search.`);
+    if (error instanceof EdhrecError && error.status === 403) {
+      edhrecAvailable = false;
+      logger?.line(`EDHREC unavailable for ${name} (403). Falling back to Scryfall-only sources.`);
+    } else {
+      logger?.line(`EDHREC high-synergy lookup failed for ${name}: ${error.message}. Falling back to Scryfall otag/mechanical search.`);
+    }
   }
-  logger?.line(`EDHREC high-synergy data for ${name}${synergyTag && synergyTag !== name ? ` via ${synergyTag}` : ''}: ${synergyNames.length ? `${synergyNames.length} cards` : 'none'}`);
-  if (!synergyNames.length) logger?.line(`No EDHREC high-synergy data found for ${name}. Using Scryfall otag/mechanical search instead.`);
+  logger?.line(`EDHREC high-synergy data for ${name}${synergyTag && synergyTag !== name ? ` via ${synergyTag}` : ''}: ${edhrecAvailable ? (synergyNames.length ? `${synergyNames.length} cards` : 'none') : 'unavailable'}`);
+  if (edhrecAvailable && !synergyNames.length) logger?.line(`No EDHREC high-synergy data found for ${name}. Using Scryfall otag/mechanical search instead.`);
   const edhrecCards = await fetchNames(synergyNames, logger);
-  const pool = uniqueByOracle([...edhrecCards, ...await themePoolCards(theme, logger)].filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
+  const scryfallThemePool = await themePoolCards(theme, logger);
+  if (scryfallThemePool.length < 6) {
+    throw new Error(`Theme ${name} rejected: only ${scryfallThemePool.length} valid Scryfall theme cards (<6).`);
+  }
+  const pool = uniqueByOracle([...edhrecCards, ...scryfallThemePool].filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
   logger?.line(`Theme pool valid cards: ${pool.length}`);
   let colorResult = chooseDeckColors(pool, { rng, logger });
   let expansion = maybeExpandColors({ chosenColors: colorResult.colors, allCards: pool, needed: 23, logger });
@@ -138,11 +159,20 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const selected = [];
   const sources = new Map();
   const ordered = (cards, source) => source.startsWith('EDHREC') ? cards : shuffle(cards, rng);
+  const reasonForSource = (source, targetCreature) => {
+    if (targetCreature === true) return 'creature/payoff target';
+    if (targetCreature === false) return 'non-creature support target';
+    if (source === 'EDHREC high synergy cache') return 'edhrec high synergy';
+    if (source.includes('direct theme match')) return 'direct theme match';
+    if (source.includes('broad oracle match')) return 'broad oracle match';
+    if (source.includes('/cards/random')) return 'true random card';
+    return 'generic color-compatible fallback';
+  };
   const addMany = (cards, section, source, targetCreature, limit) => {
     for (const card of ordered(cards, source)) {
       if (selected.length >= limit) break;
       if (targetCreature !== null && isCreature(card) !== targetCreature) continue;
-      addIfValid(selected, card, colors, { section, source, reason: targetCreature === true ? 'creature/payoff target' : targetCreature === false ? 'non-creature support target' : 'theme match' }, logger, sources);
+      addIfValid(selected, card, colors, { section, source, reason: reasonForSource(source, targetCreature) }, logger, sources);
     }
   };
   const addCoreUntil = (cards, source, targetCreature, stopWhen) => {
@@ -152,14 +182,14 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       addIfValid(selected, card, colors, {
         section: 'Core',
         source,
-        reason: targetCreature === true ? 'creature/payoff target' : targetCreature === false ? 'non-creature support target' : 'theme match',
+        reason: reasonForSource(source, targetCreature),
       }, logger, sources);
     }
   };
   const coreCreatureCount = () => selected.slice(0, 12).filter(isCreature).length;
   const coreNonCreatureCount = () => selected.slice(0, 12).filter((card) => !isCreature(card)).length;
   const legalEdhrec = edhrecCards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false }));
-  const coreFallbackSource = synergyNames.length ? 'Scryfall EDHREC-ordered theme fallback' : 'Scryfall otag/mechanical fallback';
+  const coreFallbackSource = synergyNames.length ? 'Scryfall broad oracle match' : 'Scryfall broad oracle match';
   const themeOracle = exactOracleQuery(name);
   const colorLock = `id<=${colors.join('')} game:paper lang:en`;
   addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', true, () => coreCreatureCount() >= 5);
@@ -195,30 +225,33 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
   if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', null, 23);
-  addMany(randomPool, 'Random all-time', synergyNames.length ? 'Scryfall EDHREC-ordered theme fallback' : 'Scryfall local shuffled theme pool', null, 23);
+  addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', null, 23);
   if (selected.length < 23) {
     const host = getHostQuery(name);
     if (host) {
       logger?.line(`Parasitic host injection query used for ${name}: ${host}`);
-      try { addMany(await searchCards(`${host} id<=${colors.join('')} game:paper lang:en`, { limit: 80, logger }), 'Random all-time', 'parasitic host/payoff injector', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('host injector', e); }
+      try { addMany(await searchCards(`${host} id<=${colors.join('')} game:paper lang:en`, { limit: 250, logger }), 'Random all-time', 'Scryfall broad oracle match', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('host injector', e); }
     }
   }
   if (selected.length < 23) {
     logger?.line(`Theme-oracle broadened fallback needed: ${selected.length}/23.`);
     try {
-      const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 175, logger });
-      addMany(broaderTheme, 'Random all-time', 'theme-oracle broadened fallback', null, 23);
+      const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger });
+      addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', null, 23);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle broadened fallback', e); }
   }
   if (selected.length < 23) {
     logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);
-    try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 100, logger }), 'Random all-time', 'narrow color-locked fallback (last resort)', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
+    try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger }), 'Random all-time', 'generic color-compatible fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
   }
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name}; got ${selected.length}`);
   await repairDirectSynergies(selected, pool, colors, logger, sources);
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name} after direct synergy repair; got ${selected.length}`);
   const directIssues = directSynergyIssues(selected);
   if (directIssues.length) throw new Error(`Unresolved direct synergy issues: ${directIssues.map((issue) => issue.detail).join('; ')}`);
+  const invalidThemeSynergy = validateThemeSynergySources(selected, sources);
+  if (invalidThemeSynergy.length) throw new Error(`Direct synergy validation failed: generic cards in core without real theme evidence: ${invalidThemeSynergy.join(', ')}`);
+  logger?.line('Direct synergy validation passed with strict theme-source checks.');
   const core = selected.slice(0, 12);
   const random = selected.slice(12, 23);
   logger?.line(`Selected 12 core cards: ${core.map((c) => c.name).join(', ')}`);
