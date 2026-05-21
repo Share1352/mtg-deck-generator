@@ -13,4 +13,14 @@ describe('export and validation', () => {
     const lands = Array.from({ length: 20 }, (_, i) => ({ name: 'Forest', type_line: 'Basic Land — Forest', layout: 'normal', lang: 'en', color_identity: [], oracle_id: `b${i}` }));
     expect(validateDeck({ nonlands, lands }).ok).toBe(true);
   });
+  it('rejects a deck whose land section contains a commander-only card', () => {
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({ name: `Spell ${i}`, type_line: 'Creature', layout: 'normal', lang: 'en', color_identity: [], oracle_id: `s${i}` }));
+    const lands = [
+      { name: 'Command Beacon', type_line: 'Land', layout: 'normal', lang: 'en', color_identity: [], oracle_id: 'cmd-beacon', oracle_text: '{T}, Sacrifice this land: Put your commander into your hand from the command zone.' },
+      ...Array.from({ length: 19 }, (_, i) => ({ name: 'Forest', type_line: 'Basic Land — Forest', layout: 'normal', lang: 'en', color_identity: [], oracle_id: `b${i}` })),
+    ];
+    const result = validateDeck({ nonlands, lands });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/Command Beacon|invalid non-basic land/i);
+  });
 });

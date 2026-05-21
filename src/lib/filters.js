@@ -2,7 +2,9 @@ import { BANNED_CARD_NAMES, GOODSTUFF_NAMES } from './constants.js';
 
 const invalidLayouts = new Set(['token','double_faced_token','emblem','art_series','reversible_card','dungeon','bounty','planar','scheme','vanguard','phenomenon','contraption','attraction']);
 const invalidTypeWords = ['Sticker','Hero','Vanguard','Conspiracy','Phenomenon','Plane','Dungeon','Bounty','Attraction','Contraption','Scheme','Background'];
-const commanderPhrases = [/\bcommander(?:s|'s)?\b/i, /command zone/i, /lieutenant/i, /commander tax/i, /choose a background/i];
+const commanderPhrases = [/\bcommander(?:s|'s)?\b/i, /command zone/i, /lieutenant/i, /commander tax/i, /choose a background/i, /\bpartner(?: with)?\b/i, /friends forever/i];
+const bannedNormalizedNames = new Set([...BANNED_CARD_NAMES].map((n) => String(n).toLowerCase().replace(/\s+/g, ' ').trim()));
+function normalizeName(name) { return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 const sidePhrases = [/open an attraction/i, /visit.*attraction/i, /put a sticker/i, /ticket counter/i, /assemble a contraption/i, /venture into .*dungeon card/i];
 const bannedSets = new Set(['bot','40k','who','pip','tla','tle','ttla','spm','spe']);
 const bannedNameFamilies = [/Transformers/i, /Warhammer 40,?000/i, /Doctor Who/i, /Fallout/i, /Spider-Man/i, /Marvel/i, /Avatar: The Last Airbender/i];
@@ -28,7 +30,8 @@ export function isBannedCrossover(card) {
   return bannedNameFamilies.some((re) => re.test(haystack));
 }
 export function isCommanderOnly(card) {
-  if (BANNED_CARD_NAMES.has(card?.name)) return true;
+  if (bannedNormalizedNames.has(normalizeName(card?.name))) return true;
+  for (const face of cardFaces(card)) if (bannedNormalizedNames.has(normalizeName(face?.name))) return true;
   return commanderPhrases.some((re) => re.test(oracleText(card)));
 }
 export function needsSideDeck(card) { return sidePhrases.some((re) => re.test(`${oracleText(card)} ${typeLine(card)}`)); }

@@ -126,4 +126,38 @@ describe('mana base helpers', () => {
     expect(isUsefulFetchland({ oracle_text: 'Search your library for an Island or Swamp card.' }, ['U'])).toBe(true);
     expect(isUsefulFetchland({ oracle_text: 'Search your library for a basic land card.' }, ['W'])).toBe(true);
   });
+
+  it('drops commander-only lands that slip into the random fallback pool', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    const original = globalThis.fetch;
+    const pool = [
+      landCard('Command Beacon', [], '{T}: Add {C}. {T}, Sacrifice this land: Put your commander into your hand from the command zone.'),
+      ...['Bonders\' Enclave', 'War Room', 'Mirrex', 'Demolition Field', 'Crystal Grotto', 'Hidden Grotto', 'Mishra\'s Factory', 'Roadside Reliquary', 'Hall of Storm Giants', 'Cave of the Frost Dragon', 'Den of the Bugbear', 'Eiganjo, Seat of the Empire', 'Castle Ardenvale', 'Otawara, Soaring City', 'Sokenzan, Crucible of Defiance'].map((n) => landCard(n, [], 'Add {C}.')),
+    ];
+    const basicByName = {
+      Plains: basicCard('Plains'), Island: basicCard('Island'), Swamp: basicCard('Swamp'), Mountain: basicCard('Mountain'), Forest: basicCard('Forest'),
+    };
+    globalThis.fetch = makeMockFetch({ randomLands: pool, basicByName });
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({ name: `Spell ${i}`, type_line: 'Creature', mana_cost: '{2}{W}', color_identity: ['W'], oracle_id: `spell-${i}`, lang: 'en' }));
+    let lands;
+    try {
+      lands = await buildManaBase(nonlands, ['W'], { theme: '', rng: () => 0.42 });
+    } finally {
+      globalThis.fetch = original;
+    }
+    expect(lands.map((c) => c.name)).not.toContain('Command Beacon');
+  });
+
+  it('samples a wide unique pool when filling random non-basic land slots', () => {
+    const picked = selectNonbasicLandsFromPools({
+      themeCards: [],
+      randomCards: Array.from({ length: 30 }, (_, i) => landCard(`Random Land ${i}`, ['G'])),
+      colors: ['G'],
+      count: 10,
+      rng: () => 0.31,
+    });
+    expect(picked).toHaveLength(10);
+    expect(new Set(picked.map((c) => c.name)).size).toBe(10);
+  });
 });
