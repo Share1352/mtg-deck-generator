@@ -160,4 +160,86 @@ describe('mana base helpers', () => {
     expect(picked).toHaveLength(10);
     expect(new Set(picked.map((c) => c.name)).size).toBe(10);
   });
+
+  it('builds the theme land query with otag, oracle word, type, and aliases', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    const original = globalThis.fetch;
+    const searchQueries = [];
+    globalThis.fetch = async (url) => {
+      const u = new URL(url);
+      const path = u.pathname;
+      if (path === '/cards/search') {
+        searchQueries.push(u.searchParams.get('q') || '');
+        return { ok: true, status: 200, json: async () => ({ data: [], has_more: false }) };
+      }
+      if (path === '/cards/random') {
+        return { ok: true, status: 200, json: async () => ({ name: 'Plains', type_line: 'Basic Land — Plains', oracle_text: '', color_identity: [], lang: 'en', layout: 'normal', set: 'tst', collector_number: '1', oracle_id: 'basic-plains' }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    };
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({ name: `Spell ${i}`, type_line: 'Creature', mana_cost: '{W}', color_identity: ['W'], oracle_id: `spell-${i}`, lang: 'en' }));
+    try {
+      await buildManaBase(nonlands, ['W'], { theme: 'lifegain', rng: () => 0.5 }).catch(() => {});
+    } finally {
+      globalThis.fetch = original;
+    }
+    const landQuery = searchQueries.find((q) => q.includes('type:land') && q.includes('-type:basic'));
+    expect(typeof landQuery).toBe('string');
+    expect(landQuery).toMatch(/otag:"lifegain"/);
+    expect(landQuery).toMatch(/oracle:\/\\blifegain\\b\/i/);
+    expect(landQuery).toMatch(/type:"lifegain"/);
+    expect(landQuery).toMatch(/gain life/);
+  });
+
+  it('produces varied random non-basic land selections across different rng seeds', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    const original = globalThis.fetch;
+    const pool = Array.from({ length: 40 }, (_, i) => landCard(`Pool Land ${i}`, ['G']));
+    const basicByName = { Forest: basicCard('Forest'), Plains: basicCard('Plains'), Island: basicCard('Island'), Swamp: basicCard('Swamp'), Mountain: basicCard('Mountain') };
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({ name: `Spell ${i}`, type_line: 'Creature', mana_cost: '{G}', color_identity: ['G'], oracle_id: `spell-${i}`, lang: 'en' }));
+    async function buildWith(rng) {
+      globalThis.fetch = makeMockFetch({ randomLands: pool, basicByName });
+      const lands = await buildManaBase(nonlands, ['G'], { theme: '', rng });
+      return new Set(lands.filter((c) => !/^(Snow-Covered )?(Plains|Island|Swamp|Mountain|Forest|Wastes)$/.test(c.name)).map((c) => c.name));
+    }
+    let runA, runB;
+    try {
+      let seedA = 0;
+      runA = await buildWith(() => { seedA = (seedA * 9301 + 49297) % 233280; return seedA / 233280; });
+      _resetScryfallCache();
+      let seedB = 12345;
+      runB = await buildWith(() => { seedB = (seedB * 9301 + 49297) % 233280; return seedB / 233280; });
+    } finally {
+      globalThis.fetch = original;
+    }
+    const diff = [...runA].filter((n) => !runB.has(n)).length + [...runB].filter((n) => !runA.has(n)).length;
+    expect(diff).toBeGreaterThan(0);
+  });
+
+  it('rejects banned and commander-only lands inside the random fallback loop', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    const original = globalThis.fetch;
+    const pool = [
+      landCard('Command Tower', [], 'Add one mana of any color in your commander\'s identity.'),
+      landCard('Path of Ancestry', [], 'Lands you control with basic land types tap for any color.'),
+      landCard('Command Beacon', [], '{T}: Add {C}. {T}, Sacrifice this land: Put your commander into your hand from the command zone.'),
+      ...['Bonders\' Enclave', 'War Room', 'Mirrex', 'Crystal Grotto', 'Hidden Grotto', 'Hall of Storm Giants', 'Castle Ardenvale', 'Otawara, Soaring City', 'Sokenzan, Crucible of Defiance', 'Eiganjo, Seat of the Empire', 'Den of the Bugbear', 'Cave of the Frost Dragon'].map((n) => landCard(n, [], 'Add {C}.')),
+    ];
+    const basicByName = { Plains: basicCard('Plains'), Island: basicCard('Island'), Swamp: basicCard('Swamp'), Mountain: basicCard('Mountain'), Forest: basicCard('Forest') };
+    globalThis.fetch = makeMockFetch({ randomLands: pool, basicByName });
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({ name: `Spell ${i}`, type_line: 'Creature', mana_cost: '{2}{W}', color_identity: ['W'], oracle_id: `spell-${i}`, lang: 'en' }));
+    let lands;
+    try {
+      lands = await buildManaBase(nonlands, ['W'], { theme: '', rng: () => 0.42 });
+    } finally {
+      globalThis.fetch = original;
+    }
+    const names = lands.map((c) => c.name);
+    expect(names).not.toContain('Command Beacon');
+    expect(names).not.toContain('Command Tower');
+    expect(names).not.toContain('Path of Ancestry');
+  });
 });
