@@ -1,1 +1,1 @@
-console.log('EDHREC browser-side scraping is intentionally not used. Starter cache lives in public/data/edhrec-tags.json.');
+console.log('No build-time EDHREC tag cache is generated. The app fetches EDHREC themes/tribes/typal/keywords directly at runtime from https://json.edhrec.com.');

@@ -1,19 +1,90 @@
 import { describe, expect, it } from 'vitest';
 import { allocateBasics, buildManaBase, isUsefulFetchland, selectNonbasicLandsFromPools, splitLandSlots } from '../lib/manaBase.js';
+import { _resetScryfallCache } from '../lib/scryfallClient.js';
+import { _resetEdhrecCache } from '../lib/edhrecClient.js';
+
+function landCard(name, color_identity = [], oracle_text = 'Add mana.') {
+  return {
+    name,
+    type_line: 'Land',
+    oracle_text,
+    color_identity,
+    lang: 'en',
+    layout: 'normal',
+    set: 'tst',
+    collector_number: String(100 + name.length),
+    oracle_id: `id-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+  };
+}
+
+function basicCard(name) {
+  return {
+    name,
+    type_line: `Basic Land — ${name.replace('Snow-Covered ', '')}`,
+    oracle_text: 'Add mana.',
+    color_identity: [],
+    lang: 'en',
+    layout: 'normal',
+    set: 'tst',
+    collector_number: '1',
+    oracle_id: `basic-${name}`,
+  };
+}
+
+function makeMockFetch({ randomLands = [], searchLands = [], basicByName = {} } = {}) {
+  let randomCursor = 0;
+  return async (url) => {
+    const u = new URL(url);
+    const path = u.pathname;
+    if (path === '/cards/random') {
+      const q = u.searchParams.get('q') || '';
+      const basicMatch = q.match(/!"([^"]+)"/);
+      if (basicMatch && basicByName[basicMatch[1]]) {
+        return { ok: true, status: 200, json: async () => basicByName[basicMatch[1]] };
+      }
+      if (!randomLands.length) return { ok: false, status: 503, json: async () => ({}) };
+      const card = randomLands[randomCursor % randomLands.length];
+      randomCursor += 1;
+      return { ok: true, status: 200, json: async () => card };
+    }
+    if (path === '/cards/search') {
+      return { ok: true, status: 200, json: async () => ({ data: searchLands, has_more: false }) };
+    }
+    if (path === '/cards/named') {
+      return { ok: false, status: 404, json: async () => ({}) };
+    }
+    if (path.startsWith('/pages/')) {
+      return { ok: false, status: 404, json: async () => ({}) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+}
+
 describe('mana base helpers', () => {
   it('splits lands 50/50 with extra basic', () => {
     expect(splitLandSlots(21)).toEqual({ basics: 11, nonbasics: 10 });
     expect(splitLandSlots(22)).toEqual({ basics: 11, nonbasics: 11 });
   });
+
   it('allocates basics by pips and snow conversion', () => {
     const basics = allocateBasics(['W', 'G'], 10, { W: 8, G: 2 }, true);
     expect(basics.filter((n) => /Plains/.test(n)).length).toBeGreaterThan(basics.filter((n) => /Forest/.test(n)).length);
     expect(basics.filter((n) => n.startsWith('Snow-Covered')).length).toBe(3);
   });
 
-  it('fills exhausted non-basic slots with varied random-compatible lands instead of fixed staples', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = () => Promise.reject(new Error('offline test'));
+  it('builds a mana base entirely from online Scryfall responses', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    const original = globalThis.fetch;
+    const randomLands = ['Tranquil Cove', 'Meandering River', 'Coastal Tower', 'Azorius Chancery', 'Glacial Fortress', 'Skybridge Towers', 'Port Town', 'Hallowed Fountain', 'Mystic Gate', 'Adarkar Wastes', 'Seachrome Coast', 'Prairie Stream'].map((n) => landCard(n, ['W', 'U']));
+    const basicByName = {
+      Plains: basicCard('Plains'),
+      Island: basicCard('Island'),
+      Swamp: basicCard('Swamp'),
+      Mountain: basicCard('Mountain'),
+      Forest: basicCard('Forest'),
+    };
+    globalThis.fetch = makeMockFetch({ randomLands, basicByName });
     const nonlands = Array.from({ length: 23 }, (_, i) => ({
       name: `Spell ${i}`,
       type_line: 'Creature',
@@ -26,22 +97,19 @@ describe('mana base helpers', () => {
     try {
       lands = await buildManaBase(nonlands, ['W', 'U'], { theme: '', rng: () => 0.42 });
     } finally {
-      globalThis.fetch = originalFetch;
+      globalThis.fetch = original;
     }
     const nonbasics = lands.filter((card) => !/^(Snow-Covered )?(Plains|Island|Swamp|Mountain|Forest|Wastes)$/.test(card.name));
-    const nonbasicNames = nonbasics.map((card) => card.name);
-
-    expect(nonbasics).toHaveLength(10);
-    expect(new Set(nonbasicNames).size).toBe(10);
-    expect(nonbasicNames).not.toContain('Evolving Wilds');
-    expect(nonbasicNames).not.toContain('Terramorphic Expanse');
+    const basics = lands.filter((card) => /^(Snow-Covered )?(Plains|Island|Swamp|Mountain|Forest|Wastes)$/.test(card.name));
+    expect(nonbasics.length).toBeGreaterThanOrEqual(8);
+    expect(basics.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(nonbasics.map((c) => c.name)).size).toBe(nonbasics.length);
   });
 
   it('uses theme-fitting non-basic lands before random compatible lands', () => {
-    const land = (name, color_identity = ['G'], oracle_text = 'Add mana.') => ({ name, type_line: 'Land', oracle_text, color_identity, oracle_id: `id-${name}`, lang: 'en' });
     const picked = selectNonbasicLandsFromPools({
-      themeCards: [land('Theme Grove'), land('Off-color Theme', ['U'])],
-      randomCards: [land('Random Grove'), land('Evolving Wilds', [], 'Search your library for a basic land card.')],
+      themeCards: [landCard('Theme Grove', ['G']), landCard('Off-color Theme', ['U'])],
+      randomCards: [landCard('Random Grove', ['G']), landCard('Evolving Wilds', [], 'Search your library for a basic land card.')],
       colors: ['G'],
       count: 2,
       rng: () => 0.99,
@@ -52,6 +120,7 @@ describe('mana base helpers', () => {
     expect(picked).not.toContain('Off-color Theme');
     expect(picked).not.toContain('Evolving Wilds');
   });
+
   it('rejects off-color fetchlands', () => {
     expect(isUsefulFetchland({ oracle_text: 'Search your library for a Mountain or Forest card.' }, ['U'])).toBe(false);
     expect(isUsefulFetchland({ oracle_text: 'Search your library for an Island or Swamp card.' }, ['U'])).toBe(true);

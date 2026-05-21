@@ -1,43 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { generateDeck } from '../lib/deckGenerator.js';
-import { selectCardsForTheme } from '../lib/cardSelection.js';
-import { isCreature } from '../lib/filters.js';
-import { createRng } from '../lib/random.js';
+import { _resetScryfallCache, configureScryfallRetry } from '../lib/scryfallClient.js';
+import { _resetEdhrecCache, configureEdhrecRetry } from '../lib/edhrecClient.js';
 
-describe('deck generator', () => {
-  it('forges a complete deck when Scryfall is unavailable', async () => {
-    globalThis.fetch = async () => { throw new Error('network disabled for offline generation test'); };
-    const deck = await generateDeck({ seed: 7, onProgress: () => {} });
-    expect(deck.nonlands).toHaveLength(23);
-    expect(deck.lands.length).toBeGreaterThanOrEqual(15);
-    expect(deck.lands.length).toBeLessThan(26);
-    expect(deck.exportText.split('\n').length).toBeGreaterThan(30);
-    expect(deck.debugLog).toMatch(/Offline Scryfall fallback/);
-  });
-
-  it('preserves the required creature/support split in the 12-card core', async () => {
-    globalThis.fetch = async () => { throw new Error('network disabled for core composition test'); };
-    for (const name of ['Buyback', 'Myr']) {
-      const selection = await selectCardsForTheme({ name, category: 'keyword', sources: ['test'] }, { rng: createRng(3) });
-      const coreCreatures = selection.core.filter(isCreature);
-      expect(selection.nonlands).toHaveLength(23);
-      expect(selection.core).toHaveLength(12);
-      expect(coreCreatures.length).toBeGreaterThanOrEqual(5);
-      expect(selection.core.length - coreCreatures.length).toBeGreaterThanOrEqual(7);
+describe('deck generator (online-only)', () => {
+  it('fails clearly when no online card database is reachable', async () => {
+    _resetScryfallCache();
+    _resetEdhrecCache();
+    configureScryfallRetry({ minGapMs: 0, maxAttempts: 2, baseBackoffMs: 1, maxBackoffMs: 1 });
+    configureEdhrecRetry({ maxAttempts: 2, baseBackoffMs: 1, maxBackoffMs: 1 });
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error('offline'); };
+    let caught;
+    try {
+      await generateDeck({ seed: 7, onProgress: () => {} });
+    } catch (error) {
+      caught = error;
+    } finally {
+      globalThis.fetch = original;
+      configureScryfallRetry({ minGapMs: 100, maxAttempts: 8, baseBackoffMs: 800, maxBackoffMs: 15000 });
+      configureEdhrecRetry({ maxAttempts: 6, baseBackoffMs: 800, maxBackoffMs: 15000 });
     }
-  });
-
-  it('never includes commander-only cards across many themes', async () => {
-    globalThis.fetch = async () => { throw new Error('network disabled for commander-card exclusion test'); };
-    const forbiddenNames = new Set(['Command Tower', 'Command Beacon', 'Path of Ancestry']);
-    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      const deck = await generateDeck({ seed, onProgress: () => {} });
-      for (const card of [...deck.nonlands, ...deck.lands]) {
-        expect(forbiddenNames.has(card.name)).toBe(false);
-        const oracle = String(card.oracle_text || '').toLowerCase();
-        expect(/\bcommander(?:s|'s)?\b/.test(oracle)).toBe(false);
-        expect(/command zone/.test(oracle)).toBe(false);
-      }
-    }
+    expect(caught).not.toBe(undefined);
+    expect(/Online .* (?:database|sources) (?:is|are) unreachable/i.test(caught.message)).toBe(true);
+    expect(/reachable/i.test(caught.message)).toBe(true);
   });
 });

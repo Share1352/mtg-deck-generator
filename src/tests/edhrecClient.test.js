@@ -1,21 +1,97 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalSynergyTag, getSynergyCardsForTag } from '../lib/edhrecClient.js';
+import { canonicalSynergyTag, slugifyTheme, getSynergyCardsForTag, getAllEdhrecThemes, _resetEdhrecCache } from '../lib/edhrecClient.js';
 
-describe('EDHREC synergy cache aliases', () => {
-  it('maps mechanic aliases to their cached EDHREC theme names', () => {
-    expect(canonicalSynergyTag('Equip')).toBe('Equipment');
-    expect(canonicalSynergyTag('Crew')).toBe('Vehicles');
+function withMockFetch(routes, fn) {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = new URL(url).pathname;
+    const match = routes[path];
+    if (!match) return { ok: false, status: 404, json: async () => ({}) };
+    if (typeof match === 'function') return match();
+    return { ok: true, status: 200, json: async () => match };
+  };
+  return Promise.resolve(fn()).finally(() => { globalThis.fetch = original; });
+}
+
+describe('EDHREC online client', () => {
+  it('canonicalizes mechanic aliases for matching EDHREC pages', () => {
+    expect(canonicalSynergyTag('Equip')).toBe('equipment');
+    expect(canonicalSynergyTag('Crew')).toBe('vehicles');
+    expect(canonicalSynergyTag('Flying')).toBe('Flying');
   });
 
-  it('uses the Equipment cache for Equip so equipment decks get real support cards', async () => {
-    const cards = await getSynergyCardsForTag('Equip');
-    expect(cards).toContain('Puresteel Paladin');
-    expect(cards).toContain('Axgard Armory');
+  it('slugifies theme names for EDHREC URLs', () => {
+    expect(slugifyTheme('Equipment')).toBe('equipment');
+    expect(slugifyTheme("+1/+1 Counters")).toBe('1-1-counters');
+    expect(slugifyTheme("Hexproof from")).toBe('hexproof-from');
   });
 
-  it('has a Flying cache instead of relying only on old released-order Scryfall cards', async () => {
-    const cards = await getSynergyCardsForTag('Flying');
-    expect(cards).toContain('Favorable Winds');
-    expect(cards).toContain("Rogue's Passage");
+  it('fetches synergy cards online and prefers explicit high-synergy section', async () => {
+    _resetEdhrecCache();
+    await withMockFetch({
+      '/pages/themes/equipment.json': {
+        container: {
+          json_dict: {
+            card_lists: [
+              { header: 'High Synergy Cards', cardviews: [{ name: 'Puresteel Paladin' }, { name: 'Sram, Senior Edificer' }] },
+              { header: 'Top Cards', cardviews: [{ name: 'Sol Ring' }] },
+            ],
+          },
+        },
+      },
+    }, async () => {
+      const cards = await getSynergyCardsForTag('Equip');
+      expect(cards).toContain('Puresteel Paladin');
+      expect(cards).toContain('Sram, Senior Edificer');
+      expect(cards).not.toContain('Sol Ring');
+    });
+  });
+
+  it('falls back to other category pages on 404 before failing', async () => {
+    _resetEdhrecCache();
+    await withMockFetch({
+      '/pages/tribes/myr.json': {
+        container: {
+          json_dict: {
+            card_lists: [
+              { header: 'High Synergy Cards', cardviews: [{ name: 'Myr Battlesphere' }] },
+            ],
+          },
+        },
+      },
+    }, async () => {
+      const cards = await getSynergyCardsForTag('Myr');
+      expect(cards).toContain('Myr Battlesphere');
+    });
+  });
+
+  it('aggregates EDHREC theme/tribe/typal index pages into a themes list', async () => {
+    _resetEdhrecCache();
+    await withMockFetch({
+      '/pages/themes.json': {
+        container: {
+          json_dict: {
+            card_lists: [
+              { header: 'Themes', cardviews: [{ name: 'Aristocrats' }, { name: 'Spellslinger' }] },
+            ],
+          },
+        },
+      },
+      '/pages/tribes.json': {
+        container: {
+          json_dict: {
+            card_lists: [
+              { header: 'Tribes', cardviews: [{ name: 'Myr' }, { name: 'Mite' }] },
+            ],
+          },
+        },
+      },
+    }, async () => {
+      const themes = await getAllEdhrecThemes();
+      const names = themes.map((t) => t.name);
+      expect(names).toContain('Aristocrats');
+      expect(names).toContain('Myr');
+      expect(names).toContain('Mite');
+    });
   });
 });

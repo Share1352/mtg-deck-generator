@@ -11,15 +11,6 @@ export const BANNED_THEMES = [
   'squad', 'scheme', 'vanguard', 'phenomenon', 'archenemy', 'planechase',
   'hidden agenda', 'commander', 'commander matters'
 ];
-export const HARDCODED_THEMES = [
-  'Trample','Double Strike','Vigilance','Flying','Ward','Undying','Persist','Mutate',
-  'Ninjutsu','Buyback','Saddle','Incubate','Celebration','Plot','Spree','Mobilize',
-  'Enchant','Equip','Crew','Auras','Vehicles','Landfall','Aristocrats','Spellslinger',
-  'Blink','Myr','Mite','Thrull','Ox','Mole','Serpent','Sacrifice','Lifegain','Tokens',
-  'Artifacts','Enchantress','Graveyard','Ramp','Equipment','Discard','Draw','Treasure',
-  'Food','Clues','Sagas','Pingers','Clones','Counters','Madness','Proliferate',
-  'Hexproof from','God','Sliver','Ninja','Wizard','Elf','Goblin','Zombie','Cat','Dragon'
-];
 export const LOADING_JOKES = [
   'Asking Gracee which card has the prettiest art...',
   'Letting P inspect the opening hand from the bed...',

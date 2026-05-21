@@ -1,48 +1,209 @@
-import { loadStaticJson } from './themePool.js';
+const EDHREC_API = 'https://json.edhrec.com';
+const TRANSIENT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const retry = {
+  maxAttempts: 6,
+  baseBackoffMs: 800,
+  maxBackoffMs: 15000,
+};
+export function configureEdhrecRetry(overrides = {}) { Object.assign(retry, overrides); }
+const cache = new Map();
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const TAG_FALLBACK = [
-  { name: 'Aristocrats', category: 'theme' }, { name: 'Spellslinger', category: 'theme' },
-  { name: 'Blink', category: 'theme' }, { name: 'Lifegain', category: 'theme' },
-  { name: 'Landfall', category: 'theme' }, { name: 'Myr', category: 'typal' },
-  { name: 'Mite', category: 'typal' }, { name: 'Thrull', category: 'typal' },
-  { name: 'Ox', category: 'typal' }, { name: 'Mole', category: 'typal' },
-  { name: 'Serpent', category: 'typal' }, { name: 'Buyback', category: 'keyword' },
-  { name: 'Enchant', category: 'mechanic' }, { name: 'Equipment', category: 'theme' },
-  { name: 'Vehicles', category: 'theme' }, { name: 'Saddle', category: 'mechanic' },
-  { name: 'Celebration', category: 'mechanic' }, { name: 'Mobilize', category: 'mechanic' },
-  { name: 'Incubate', category: 'mechanic' },
-];
+export class EdhrecError extends Error {
+  constructor(message, status, endpoint) {
+    super(message);
+    this.name = 'EdhrecError';
+    this.status = status;
+    this.endpoint = endpoint;
+  }
+}
 
 const THEME_ALIASES = {
-  equip: 'Equipment',
-  crew: 'Vehicles',
-  auras: 'Enchant',
+  equip: 'equipment',
+  crew: 'vehicles',
+  auras: 'aura',
+  ramp: 'ramp',
 };
-
-const SYNERGY_FALLBACK = {
-  Myr: ['Myr Battlesphere', 'Myr Retriever', 'Palladium Myr', 'Myr Galvanizer', 'Myr Sire', 'Myr Superion', 'Myr Enforcer', 'Myrsmith', 'Myr Turbine', 'Myr Matrix', 'Wake the Past', 'Tempered Steel', 'All Is Dust', 'Steel Overseer'],
-  Mite: ["Skrelv's Hive", 'Sculpted Perfection', 'Crawling Chorus', 'Skrelv, Defector Mite', 'Infested Fleshcutter', 'Charge of the Mites', "Norn's Wellspring", "White Sun's Twilight", 'Compleat Devotion', "Vraska's Fall", 'Bloated Processor', 'Drown in Ichor'],
-  Buyback: ['Capsize', 'Reiterate', 'Whispers of the Muse', 'Forbid', 'Mystic Speculation', 'Sprout Swarm', 'Clockspinning', 'Spellweaver Helix', 'Goblin Electromancer', 'Baral, Chief of Compliance', 'Young Pyromancer', 'Talrand, Sky Summoner'],
-  Enchant: ['Kor Spiritdancer', 'Sram, Senior Edificer', 'Setessan Champion', 'Mesa Enchantress', 'Ethereal Armor', 'All That Glitters', 'Rancor', 'Ancestral Mask', 'Daybreak Coronet', 'Shielded by Faith', "Enchantress's Presence", 'Sterling Grove'],
-  Equipment: ['Puresteel Paladin', 'Sram, Senior Edificer', 'Stoneforge Mystic', 'Kemba, Kha Regent', 'Colossus Hammer', 'Shadowspear', 'Sword of the Animist', "Sigarda's Aid", 'Open the Armory', 'Danitha Capashen, Paragon', 'Bruenor Battlehammer', 'Fighter Class', 'Akiri, Fearless Voyager', 'Ardenn, Intrepid Archaeologist', 'Balan, Wandering Knight', 'Wyleth, Soul of Steel', 'Halvar, God of Battle', 'Forge Anew', "Steelshaper's Gift", 'Stonehewer Giant', 'Hammer of Nazahn', 'Blackblade Reforged', 'Puresteel Paladin', 'Axgard Armory', "Inventors' Fair", 'Buried Ruin'],
-  Vehicles: ['Depala, Pilot Exemplar', 'Veteran Motorist', 'Greasefang, Okiba Boss', 'Peacewalker Colossus', "Smuggler's Copter", 'Heart of Kiran', 'Mobilizer Mech', 'Reckoner Bankbuster', 'Born to Drive', 'Start Your Engines', 'Armed and Armored', 'Hotshot Mechanic'],
-  Landfall: ['Lotus Cobra', 'Tireless Provisioner', 'Rampaging Baloths', 'Felidar Retreat', 'Scute Swarm', 'Avenger of Zendikar', 'Roiling Regrowth', 'Harrow', 'Explore', 'Cultivate', 'Evolving Wilds', 'Terramorphic Expanse'],
-  Flying: ['Bident of Thassa', 'Reconnaissance Mission', 'Coastal Piracy', 'Favorable Winds', 'Gravitational Shift', 'Kangee, Sky Warden', 'Empyrean Eagle', 'Jubilant Skybonder', "Sephara, Sky's Blade", 'Warden of Evos Isle', 'Aerial Extortionist', 'Welcoming Vampire', 'Linvala, Shield of Sea Gate', 'Windreader Sphinx', 'Skycat Sovereign', 'Emeria Angel', "Rogue's Passage", 'Moorland Haunt', 'Castle Ardenvale'],
-};
-
-export async function getAllEdhrecTags() {
-  return loadStaticJson('data/edhrec-tags.json', TAG_FALLBACK);
-}
 
 export function canonicalSynergyTag(tag) {
-  const raw = tag.name || tag;
-  return THEME_ALIASES[String(raw).toLowerCase()] || raw;
+  const raw = String(tag?.name || tag || '').trim();
+  const lower = raw.toLowerCase();
+  return THEME_ALIASES[lower] || raw;
 }
 
-export async function getSynergyCardsForTag(tag) {
-  const key = canonicalSynergyTag(tag);
-  const cache = await loadStaticJson('data/edhrec-synergy-cache.json', SYNERGY_FALLBACK);
-  return cache[key] || SYNERGY_FALLBACK[key] || [];
+export function slugifyTheme(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-export async function getRelatedSectionsForTag() { return []; }
+async function edhrecFetch(path, { logger } = {}) {
+  if (cache.has(path)) { logger?.line(`EDHREC cache hit ${path}`); return cache.get(path); }
+  const url = `${EDHREC_API}${path}`;
+  let lastError;
+  for (let attempt = 1; attempt <= retry.maxAttempts; attempt += 1) {
+    let res;
+    try {
+      res = await fetch(url);
+    } catch (error) {
+      lastError = error;
+      logger?.line(`EDHREC ${path} network error attempt=${attempt}/${retry.maxAttempts}: ${error.message}`);
+      if (attempt < retry.maxAttempts) {
+        const backoff = Math.min(retry.maxBackoffMs, retry.baseBackoffMs * 2 ** (attempt - 1));
+        logger?.line(`EDHREC waiting ${backoff}ms before retry`);
+        await wait(backoff);
+      }
+      continue;
+    }
+    logger?.line(`EDHREC ${path} status=${res.status} attempt=${attempt}/${retry.maxAttempts}`);
+    if (res.ok) {
+      const data = await res.json();
+      cache.set(path, data);
+      return data;
+    }
+    if (res.status === 404) throw new EdhrecError(`EDHREC 404 for ${path}`, 404, url);
+    if (!TRANSIENT_STATUS.has(res.status)) throw new EdhrecError(`EDHREC non-retryable status ${res.status} for ${path}`, res.status, url);
+    lastError = new EdhrecError(`EDHREC transient ${res.status} for ${path}`, res.status, url);
+    if (attempt < retry.maxAttempts) {
+      const backoff = Math.min(retry.maxBackoffMs, retry.baseBackoffMs * 2 ** (attempt - 1));
+      logger?.line(`EDHREC waiting ${backoff}ms before retry`);
+      await wait(backoff);
+    }
+  }
+  throw lastError instanceof EdhrecError
+    ? lastError
+    : new EdhrecError(`EDHREC ${path} failed after ${retry.maxAttempts} retries: ${lastError?.message || 'unknown error'}`, 0, url);
+}
+
+function collectCardLists(data) {
+  const out = [];
+  const lists = data?.container?.json_dict?.card_lists
+    || data?.json_dict?.card_lists
+    || data?.cardlists
+    || data?.card_lists
+    || [];
+  for (const list of lists) {
+    const items = list?.cardviews || list?.cards || [];
+    out.push({ header: String(list?.header || list?.tag || '').toLowerCase(), items });
+  }
+  return out;
+}
+
+function extractCardNames(data) {
+  const names = [];
+  for (const list of collectCardLists(data)) {
+    for (const item of list.items) {
+      const name = item?.name || item?.cardview?.name || item?.card_name;
+      if (name) names.push(String(name));
+    }
+  }
+  return names;
+}
+
+function extractThemeEntries(data, source) {
+  const out = [];
+  for (const list of collectCardLists(data)) {
+    for (const item of list.items) {
+      const name = item?.name || item?.cardview?.name || item?.card_name;
+      if (!name) continue;
+      const url = item?.url || item?.sanitized_url || '';
+      const category = list.header || source;
+      out.push({ name: String(name), category, source, url });
+    }
+  }
+  return out;
+}
+
+const THEME_INDEX_PAGES = [
+  { path: '/pages/themes.json', source: 'EDHREC themes' },
+  { path: '/pages/tribes.json', source: 'EDHREC tribes' },
+  { path: '/pages/typal.json', source: 'EDHREC typal' },
+  { path: '/pages/keywords.json', source: 'EDHREC keywords' },
+];
+
+export async function getAllEdhrecThemes({ logger } = {}) {
+  const out = [];
+  const errors = [];
+  for (const { path, source } of THEME_INDEX_PAGES) {
+    try {
+      const data = await edhrecFetch(path, { logger });
+      const entries = extractThemeEntries(data, source);
+      logger?.line(`EDHREC ${path}: parsed ${entries.length} theme entries`);
+      out.push(...entries);
+    } catch (error) {
+      if (error instanceof EdhrecError && error.status === 404) {
+        logger?.line(`EDHREC ${path}: 404 — page not exposed, skipping`);
+        continue;
+      }
+      errors.push(error);
+      logger?.line(`EDHREC ${path}: ${error.message}`);
+    }
+  }
+  if (!out.length) {
+    const detail = errors.map((e) => e.message).join('; ') || 'no EDHREC theme pages reachable';
+    throw new EdhrecError(`Unable to fetch any EDHREC theme list: ${detail}`, 0, EDHREC_API);
+  }
+  return out;
+}
+
+const THEME_PAGE_CATEGORIES = ['themes', 'tribes', 'typal'];
+
+export async function getSynergyCardsForTag(tag, { logger } = {}) {
+  const slug = slugifyTheme(canonicalSynergyTag(tag));
+  if (!slug) return [];
+  let lastError;
+  for (const category of THEME_PAGE_CATEGORIES) {
+    try {
+      const data = await edhrecFetch(`/pages/${category}/${slug}.json`, { logger });
+      const allNames = extractCardNames(data);
+      const highSynergy = [];
+      for (const list of collectCardLists(data)) {
+        if (/high\s*synergy|high-synergy|top\s*synergy/i.test(list.header)) {
+          for (const item of list.items) {
+            const name = item?.name || item?.cardview?.name;
+            if (name) highSynergy.push(String(name));
+          }
+        }
+      }
+      if (highSynergy.length) {
+        logger?.line(`EDHREC /${category}/${slug}: ${highSynergy.length} high-synergy names`);
+        return highSynergy;
+      }
+      logger?.line(`EDHREC /${category}/${slug}: ${allNames.length} total card names (no explicit high-synergy section)`);
+      if (allNames.length) return allNames;
+    } catch (error) {
+      if (error instanceof EdhrecError && error.status === 404) {
+        logger?.line(`EDHREC /${category}/${slug}: 404 — not present`);
+        continue;
+      }
+      lastError = error;
+      logger?.line(`EDHREC /${category}/${slug}: ${error.message}`);
+    }
+  }
+  if (lastError) throw lastError;
+  return [];
+}
+
+export async function getRelatedSectionsForTag(tag, { logger } = {}) {
+  const slug = slugifyTheme(canonicalSynergyTag(tag));
+  if (!slug) return [];
+  for (const category of THEME_PAGE_CATEGORIES) {
+    try {
+      const data = await edhrecFetch(`/pages/${category}/${slug}.json`, { logger });
+      return collectCardLists(data).map(({ header, items }) => ({
+        header,
+        cards: items.map((it) => it?.name || it?.cardview?.name).filter(Boolean),
+      }));
+    } catch (error) {
+      if (error instanceof EdhrecError && error.status === 404) continue;
+      throw error;
+    }
+  }
+  return [];
+}
+
+export function _resetEdhrecCache() {
+  cache.clear();
+}

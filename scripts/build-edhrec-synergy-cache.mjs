@@ -1,1 +1,1 @@
-console.log('Starter synergy cache lives in public/data/edhrec-synergy-cache.json. Replace with build-time extraction when available.');
+console.log('No build-time EDHREC synergy cache is generated. The app fetches per-theme high-synergy cards directly at runtime from https://json.edhrec.com.');
