@@ -1,4 +1,4 @@
-name: Deploy static content to Pages
+name: Deploy GitHub Pages
 
 on:
   push:
@@ -6,71 +6,56 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
+  id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: https://share1352.github.io/mtg-deck-generator/
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version: lts/*
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
       - name: Test
         run: npm test
+
       - name: Build
         run: npm run build
+
       - name: Prepare Pages files
         run: |
           touch dist/.nojekyll
           cp dist/index.html dist/404.html
-      - name: Publish to gh-pages branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          publish_dir="$(mktemp -d)"
-          cp -a dist/. "$publish_dir/"
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
-          cd "$publish_dir"
-          git init
-          git checkout -b gh-pages
-          git add .
-          git commit -m "Deploy GitHub Pages"
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force origin gh-pages
-      - name: Verify live Pages site
-        run: |
-          set -euo pipefail
-          site_url="https://share1352.github.io/mtg-deck-generator/"
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
-          for attempt in {1..30}; do
-            status="$(curl -L -sS -o /tmp/pages-response.html -w '%{http_code}' "${site_url}" || true)"
-            if [ "${status}" = "200" ] && ! grep -q "There isn't a GitHub Pages site here" /tmp/pages-response.html; then
-              echo "GitHub Pages is live at ${site_url}"
-              exit 0
-            fi
-
-            echo "Attempt ${attempt}/30: ${site_url} returned ${status}; waiting for Pages propagation."
-            sleep 10
-          done
-
-          echo "::error::GitHub Pages did not become reachable at ${site_url}. Last response:"
-          cat /tmp/pages-response.html
-          exit 1
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
