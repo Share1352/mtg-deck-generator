@@ -23,11 +23,11 @@ function errorBlurb(error) {
 }
 
 export default function App() {
-  const [state, setState] = useState('idle');
-  const [progress, setProgress] = useState(0);
+  const autoForge = useMemo(() => shouldAutoForge(), []);
+  const [state, setState] = useState(() => (autoForge ? 'loading' : 'idle'));
+  const [progress, setProgress] = useState(() => (autoForge ? 1 : 0));
   const [deck, setDeck] = useState(null);
   const [error, setError] = useState(null);
-  const autoForge = useMemo(() => shouldAutoForge(), []);
   const autoForgeStarted = useRef(false);
   const joke = useMemo(() => LOADING_JOKES[Math.min(LOADING_JOKES.length - 1, Math.floor(progress / 9))], [progress]);
   async function forge() {
