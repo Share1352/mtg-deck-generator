@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Verify EDHREC mirror
+        run: node scripts/verify-edhrec-mirror.js
+
       - name: Build
         run: npm run build
 

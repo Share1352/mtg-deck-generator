@@ -8,7 +8,7 @@ on:
       top_n:
         description: 'How many per-theme synergy pages to mirror'
         required: false
-        default: '200'
+        default: '1000'
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Prefetch EDHREC into public/data/edhrec
-        run: node scripts/prefetch-edhrec.js --top-n=${{ github.event.inputs.top_n || '200' }}
+        run: node scripts/prefetch-edhrec.js --top-n=${{ github.event.inputs.top_n || '1000' }}
 
       - name: Commit changes to main (if any)
         env:
