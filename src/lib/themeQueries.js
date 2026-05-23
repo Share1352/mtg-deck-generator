@@ -1,5 +1,29 @@
 import { categorizeTheme, themeKey } from './themePool.js';
 const parasitic = new Set(['enchant','auras','equipment','equip','vehicles','crew','saddle','mount','mutate','ninjutsu','buyback','cipher','spectacle','bloodthirst']);
+const THEME_ADJACENT_QUERIES = {
+  riot: [
+    '(keyword:haste OR oracle:/\\bhaste\\b/i)',
+    '(oracle:"+1/+1 counter" OR otag:counters-matter)',
+    '(oracle:/\\bmodified\\b/i OR otag:modified)',
+    '(oracle:/whenever .* attacks?/i OR otag:attack-trigger)',
+    '(oracle:/enters? .* with .* counter/i OR otag:etb-counters)',
+    '(otag:gruul OR (oracle:/\\btrample\\b/i AND oracle:/\\bhaste\\b/i))',
+  ],
+  lifegain: ['(oracle:/\\bgain\\b.*\\blife\\b/i OR otag:lifegain)'],
+  tokens: ['(oracle:/\\bcreate\\b .* token/i OR otag:tokens-matter)'],
+  artifacts: ['(type:artifact OR otag:artifacts-matter)'],
+  sacrifice: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'],
+  aristocrats: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'],
+  spellslinger: ['(oracle:/instant or sorcery/i OR otag:spellslinger)'],
+  counters: ['(oracle:"+1/+1 counter" OR otag:counters-matter)'],
+  graveyard: ['(oracle:/graveyard/i OR otag:graveyard-matters)'],
+};
+
+export function getThemeAdjacentQueries(theme) {
+  const name = typeof theme === 'string' ? theme : theme?.name;
+  const key = themeKey(name);
+  return THEME_ADJACENT_QUERIES[key] ? [...THEME_ADJACENT_QUERIES[key]] : [];
+}
 export function exactOracleQuery(theme) { return `oracle:/\\b${String(theme).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b/i`; }
 function pluralizeTypal(name) {
   const n = String(name || '');

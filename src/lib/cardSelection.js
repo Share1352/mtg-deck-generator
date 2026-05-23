@@ -1,6 +1,6 @@
 import { canonicalSynergyTag, getSynergyCardsForTag, EdhrecError } from './edhrecClient.js';
 import { namedCard, searchCards, ScryfallError } from './scryfallClient.js';
-import { buildThemeQuery, exactOracleQuery, getHostQuery } from './themeQueries.js';
+import { buildThemeQuery, exactOracleQuery, getHostQuery, getThemeAdjacentQueries } from './themeQueries.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
 import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
@@ -307,8 +307,36 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       logTypalStageFill('F (generic color-compatible fallback)', stageFStart);
     }
   } else {
+    const logNonTypalStageFill = (stage, before) => logger?.line(`Non-typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
+    const stageAStart = selected.length;
     if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
-    addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
+    logNonTypalStageFill('A (EDHREC synergy)', stageAStart);
+
+    if (selected.length < 23) {
+      const stageBStart = selected.length;
+      addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
+      logNonTypalStageFill('B (direct theme query)', stageBStart);
+    }
+
+    if (selected.length < 23) {
+      const stageCStart = selected.length;
+      const adjacentQueries = getThemeAdjacentQueries(theme);
+      for (const adjacentQuery of adjacentQueries) {
+        if (selected.length >= 23) break;
+        try {
+          addMany(
+            await searchCards(`${adjacentQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
+            'Random all-time',
+            `theme-adjacent query: ${adjacentQuery}`,
+            'theme-adjacent',
+            null,
+            23,
+            false,
+          );
+        } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent fallback query ${adjacentQuery}`, e); }
+      }
+      logNonTypalStageFill('C (theme-adjacent queries)', stageCStart);
+    }
   }
   if (selected.length < 23) {
     const host = getHostQuery(name);
@@ -321,10 +349,11 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     logger?.line(`Theme-oracle broadened fallback needed: ${selected.length}/23.`);
     try {
       const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger });
-      addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', 'theme-adjacent', null, 23, true);
+      addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', 'theme-adjacent', null, 23, false);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle broadened fallback', e); }
   }
   if (selected.length < 23) {
+    logger?.line(`Non-typal/typal stage D generic color fallback needed: ${selected.length}/23.`);
     logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);
     try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger }), 'Random all-time', 'generic color-compatible fallback', 'generic-color-filler', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
   }
