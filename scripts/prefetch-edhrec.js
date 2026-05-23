@@ -33,10 +33,10 @@ const REQUEST_GAP_MS = 250;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs() {
-  const args = { soft: false, topN: 200 };
+  const args = { soft: false, topN: 1000 };
   for (const arg of process.argv.slice(2)) {
     if (arg === '--soft') args.soft = true;
-    else if (arg.startsWith('--top-n=')) args.topN = parseInt(arg.slice('--top-n='.length), 10) || 200;
+    else if (arg.startsWith('--top-n=')) args.topN = parseInt(arg.slice('--top-n='.length), 10) || 1000;
   }
   return args;
 }
@@ -92,6 +92,7 @@ async function main() {
   console.log(`prefetch-edhrec: soft=${soft} topN=${topN}`);
   let hadAnyFailure = false;
   let hadAnySuccess = false;
+  let indexPagesFetched = 0;
   const slugQueue = []; // [{slug, category}]
   const seenSlug = new Set();
 
@@ -103,6 +104,7 @@ async function main() {
       const out = join(OUT_DIR, path.replace(/^\//, ''));
       await writeJson(out, data);
       hadAnySuccess = true;
+      indexPagesFetched += 1;
       const slugs = collectThemeSlugsFromIndex(data, category || 'themes');
       for (const entry of slugs) {
         const key = `${entry.category}/${entry.slug}`;
@@ -139,6 +141,20 @@ async function main() {
     await wait(REQUEST_GAP_MS);
   }
   console.log(`prefetch-edhrec: per-theme wrote=${okCount} failed=${failCount} of ${targets.length}`);
+
+  // 3. Write manifest so the runtime can log mirror coverage at startup
+  if (hadAnySuccess) {
+    const manifest = {
+      generatedAt: new Date().toISOString(),
+      indexPagesFetched,
+      themePagesFetched: okCount,
+      failedPages: failCount,
+      topN,
+      totalDiscoveredSlugs: slugQueue.length,
+    };
+    await writeJson(join(OUT_DIR, 'manifest.json'), manifest);
+    console.log(`prefetch-edhrec: wrote manifest.json (themePagesFetched=${okCount})`);
+  }
 
   if (!hadAnySuccess) {
     const msg = 'prefetch-edhrec: no EDHREC data could be fetched.';

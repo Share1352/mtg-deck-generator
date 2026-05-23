@@ -35,10 +35,15 @@ function isMissing(sourceId, path) {
   return negativeCache.get(sourceId)?.has(path) || false;
 }
 
+// Diagnostic state – one-shot mirror availability log per session.
+const _diag = { mirrorStatusLogged: false, manifestLogged: false };
+
 export function _resetSourcesCache() {
   negativeCache.clear();
   _nextBuildIdCache.value = null;
   _nextBuildIdCache.refreshedAt = 0;
+  _diag.mirrorStatusLogged = false;
+  _diag.manifestLogged = false;
 }
 
 async function fetchJsonOnce(url, { logger, sourceId } = {}) {
@@ -254,27 +259,72 @@ const corsProxySource = {
 
 // ---- Orchestrator ----
 
+// Order: same-origin bundled first, then GitHub mirror, then direct EDHREC,
+// then CORS proxies (reliable fallback for CORS/403), then fragile speculative
+// sources (_next/data buildId can rotate; S3 endpoints unconfirmed).
 export const SOURCES = [
   bundledStaticSource,
   githubMirrorSource,
   directEdhrecSource,
+  corsProxySource,
   edhrecNextDataSource,
   edhrecS3Source,
-  corsProxySource,
 ];
 
 export async function tryAllSources(path, { logger } = {}) {
   const attempts = [];
   let worstStatus = 0;
+  let bundledFailed = false;
+
   for (const source of SOURCES) {
     try {
       logger?.line(`EDHREC source ${source.id}: trying ${path}`);
       const data = await source.fetch(path, { logger });
+
+      // One-shot mirror availability log on the first call that reaches a mirror source.
+      if (!_diag.mirrorStatusLogged) {
+        if (source.id === 'bundled-static') {
+          logger?.line('EDHREC bundled mirror available: yes');
+          // Best-effort: fetch manifest and log coverage details.
+          if (!_diag.manifestLogged) {
+            _diag.manifestLogged = true;
+            fetch(bundledStaticUrl('/manifest.json'))
+              .then((r) => (r.ok ? r.json() : Promise.reject()))
+              .then((m) => {
+                if (m?.generatedAt) {
+                  logger?.line(
+                    `EDHREC mirror manifest: generatedAt=${m.generatedAt}, themePagesFetched=${m.themePagesFetched ?? '?'}`,
+                  );
+                }
+              })
+              .catch(() => {});
+          }
+        } else if (source.id === 'gh-mirror-raw') {
+          logger?.line('EDHREC bundled mirror available: no');
+          logger?.line('EDHREC GitHub mirror branch available: yes');
+        }
+        _diag.mirrorStatusLogged = true;
+      }
+
       logger?.line(`EDHREC source ${source.id}: success for ${path}`);
       return { data, sourceId: source.id };
     } catch (error) {
       const status = error?.status || 0;
       attempts.push({ sourceId: source.id, status, message: error?.message || String(error) });
+
+      if (source.id === 'bundled-static') bundledFailed = true;
+
+      // After both mirror sources fail, log a clear warning before falling through
+      // to unreliable browser-based sources.
+      if (!_diag.mirrorStatusLogged && source.id === 'gh-mirror-raw' && bundledFailed) {
+        logger?.line('EDHREC bundled mirror available: no');
+        logger?.line('EDHREC GitHub mirror branch available: no');
+        logger?.line(
+          'Bundled EDHREC mirror missing. Run refresh-edhrec-mirror workflow or prefetch-edhrec before deploy.',
+        );
+        _diag.mirrorStatusLogged = true;
+      }
+
       // 403 is the worst because it's the symptom we're trying to overcome — preserve it
       // so cardSelection.js's 403-branch still triggers.
       if (status === 403) worstStatus = 403;

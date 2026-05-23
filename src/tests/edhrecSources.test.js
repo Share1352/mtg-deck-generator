@@ -32,17 +32,21 @@ async function expectRejection(promise, predicate) {
 describe('EDHREC source orchestrator', () => {
   it('exposes all 6 source strategies in priority order', () => {
     resetCaches();
+    // cors-proxy is before edhrec-next-data and edhrec-s3 because _next/data buildId
+    // discovery is fragile and S3 endpoints are speculative; CORS proxies are more reliable.
     expect(SOURCES.map((s) => s.id)).toEqual([
       'bundled-static',
       'gh-mirror-raw',
       'direct-edhrec-json',
+      'cors-proxy',
       'edhrec-next-data',
       'edhrec-s3',
-      'cors-proxy',
     ]);
   });
 
-  it('stops at the first successful source', async () => {
+  // ---- A. bundled-static success ----
+
+  it('stops at bundled-static when it serves valid JSON', async () => {
     resetCaches();
     await withFetch((url) => {
       if (url.includes('/data/edhrec/pages/themes.json')) {
@@ -57,7 +61,46 @@ describe('EDHREC source orchestrator', () => {
     });
   });
 
-  it('cascades from bundled to direct json.edhrec.com on 404', async () => {
+  // ---- B. bundled-static missing + gh-mirror success ----
+
+  it('falls back to gh-mirror-raw when bundled-static returns 404', async () => {
+    resetCaches();
+    await withFetch((url) => {
+      if (url.includes('raw.githubusercontent.com') && url.includes('/pages/themes.json')) {
+        return jsonResponse({ container: { json_dict: { card_lists: [] } } });
+      }
+      return statusResponse(404);
+    }, async (calls) => {
+      const { sourceId } = await tryAllSources('/pages/themes.json');
+      expect(sourceId).toBe('gh-mirror-raw');
+      expect(calls.some((u) => u.includes('/data/edhrec/pages/themes.json'))).toBe(true);
+      expect(calls.some((u) => u.includes('raw.githubusercontent.com'))).toBe(true);
+    });
+  });
+
+  // ---- C. both mirror sources missing → warning logged before direct/proxy sources ----
+
+  it('warns when both mirror sources are missing before falling through to direct sources', async () => {
+    resetCaches();
+    const logs = [];
+    const logger = { line: (msg) => logs.push(msg) };
+    await withFetch((url) => {
+      if (url === 'https://json.edhrec.com/pages/themes.json') {
+        return jsonResponse({ container: { json_dict: { card_lists: [] } } });
+      }
+      return statusResponse(404);
+    }, async () => {
+      const { sourceId } = await tryAllSources('/pages/themes.json', { logger });
+      expect(sourceId).toBe('direct-edhrec-json');
+      // Warning must appear before the direct-source success log
+      const warnIdx = logs.findIndex((l) => /refresh-edhrec-mirror|prefetch-edhrec/.test(l));
+      const successIdx = logs.findIndex((l) => l.includes('direct-edhrec-json') && l.includes('success'));
+      expect(warnIdx).toBeGreaterThanOrEqual(0);
+      expect(warnIdx).toBeLessThan(successIdx);
+    });
+  });
+
+  it('cascades from bundled-static to direct json.edhrec.com on 404', async () => {
     resetCaches();
     await withFetch((url) => {
       if (url === 'https://json.edhrec.com/pages/themes.json') {
@@ -82,6 +125,22 @@ describe('EDHREC source orchestrator', () => {
     }, async () => {
       const { sourceId } = await tryAllSources('/pages/themes.json');
       expect(sourceId).toBe('cors-proxy');
+    });
+  });
+
+  // ---- D. all sources fail → AllSourcesFailedError with full attempts ----
+
+  it('throws AllSourcesFailedError with attempts for every source when all fail', async () => {
+    resetCaches();
+    await withFetch(() => statusResponse(503), async () => {
+      await expectRejection(
+        tryAllSources('/pages/themes.json'),
+        (e) =>
+          e.name === 'AllSourcesFailedError' &&
+          Array.isArray(e.attempts) &&
+          e.attempts.length === SOURCES.length &&
+          e.attempts.every((a) => typeof a.sourceId === 'string' && typeof a.status === 'number'),
+      );
     });
   });
 
@@ -121,6 +180,23 @@ describe('edhrecClient delegates to the source orchestrator', () => {
     }, async () => {
       const cards = await getSynergyCardsForTag('Equipment');
       expect(cards).toContain('Puresteel Paladin');
+    });
+  });
+
+  it('returns synergy cards from gh-mirror-raw when bundled-static is missing', async () => {
+    resetCaches();
+    await withFetch((url) => {
+      if (url.includes('raw.githubusercontent.com') && url.includes('/pages/themes/equipment.json')) {
+        return jsonResponse({
+          container: { json_dict: { card_lists: [
+            { header: 'High Synergy Cards', cardviews: [{ name: 'Sram, Senior Edificer' }] },
+          ] } },
+        });
+      }
+      return statusResponse(404);
+    }, async () => {
+      const cards = await getSynergyCardsForTag('Equipment');
+      expect(cards).toContain('Sram, Senior Edificer');
     });
   });
 });
