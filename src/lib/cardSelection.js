@@ -33,6 +33,43 @@ function pluralizeTypalName(name) {
   return `${n}s`;
 }
 
+async function runTypalSelectionPipeline({
+  name,
+  colors,
+  selected,
+  legalEdhrec,
+  randomPool,
+  synergyNames,
+  logger,
+  addMany,
+}) {
+  const typalName = String(name || '');
+  const pluralTypalName = pluralizeTypalName(typalName);
+  const colorLock = `id<=${colors.join('')} game:paper lang:en`;
+  const typalMentionQuery = `(oracle:/\\b${typalName}\\b/i OR oracle:/\\b${pluralTypalName}\\b/i)`;
+  const creatureTypeQuery = `type:"${typalName}" ${colorLock} -type:land`;
+  const remainingCapacity = () => Math.max(0, 23 - selected.length);
+  const stageLog = (stage, before) => logger?.line(`Typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
+  const runStage = async (stage, loader) => {
+    if (remainingCapacity() <= 0) return;
+    const before = selected.length;
+    let candidates = [];
+    try {
+      candidates = await loader();
+    } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`typal pipeline stage ${stage}`, e); }
+    if (Array.isArray(candidates) && candidates.length) addMany(candidates, 'Random all-time', `typal-stage-${stage}`, stage.startsWith('D') ? 'typal-support' : stage.startsWith('E') ? 'theme-adjacent' : stage.startsWith('F') ? 'generic-color-filler' : 'direct-theme', null, 23, !stage.startsWith('F'));
+    if (selected.length === before) logger?.line(`Typal stage ${stage} yielded zero viable candidates.`);
+    stageLog(stage, before);
+  };
+
+  await runStage('A (direct tribe-evidence cards)', async () => synergyNames.length ? legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))) : []);
+  await runStage('B (strong tribe-synergy enablers)', async () => searchCards(creatureTypeQuery, { order: 'edhrec', limit: 120, logger }));
+  await runStage('C (on-tribe role fillers)', async () => searchCards(`${typalMentionQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }));
+  await runStage('D (generic typal support)', async () => randomPool.filter((card) => isGenericTypalSupport(card)));
+  await runStage('E (theme-adjacent non-tribal support)', async () => searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }));
+  await runStage('F (generic filler)', async () => searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }));
+}
+
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
@@ -326,40 +363,8 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
   const isTypal = theme?.category === 'typal';
-  const logTypalStageFill = (stage, before) => logger?.line(`Typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
   if (isTypal) {
-    const typalName = String(name || '');
-    const pluralTypalName = pluralizeTypalName(typalName);
-    const typalMentionQuery = `(oracle:/\\b${typalName}\\b/i OR oracle:/\\b${pluralTypalName}\\b/i)`;
-    const creatureTypeQuery = `type:"${typalName}" ${colorLock} -type:land`;
-    const stageAStart = selected.length;
-    if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
-    logTypalStageFill('A (EDHREC synergy)', stageAStart);
-    if (selected.length < 23) {
-      const stageBStart = selected.length;
-      try { addMany(await searchCards(creatureTypeQuery, { order: 'edhrec', limit: 120, logger }), 'Random all-time', 'typal-direct-type-line', 'direct-theme', true, 23, true); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage B direct type-line creatures', e); }
-      logTypalStageFill('B (direct type-line creatures)', stageBStart);
-    }
-    if (selected.length < 23) {
-      const stageCStart = selected.length;
-      try { addMany(await searchCards(`${typalMentionQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }), 'Random all-time', 'typal-direct-mention', 'direct-theme', null, 23, true); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage C oracle singular/plural mention', e); }
-      logTypalStageFill('C (direct mention cards)', stageCStart);
-    }
-    if (selected.length < 23) {
-      const stageDStart = selected.length;
-      addMany(randomPool.filter((card) => isGenericTypalSupport(card)), 'Random all-time', 'typal-generic-support-allowlist', 'typal-support', null, 23, true);
-      logTypalStageFill('D (generic typal support)', stageDStart);
-    }
-    if (selected.length < 23) {
-      const stageEStart = selected.length;
-      try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage E changeling fallback', e); }
-      logTypalStageFill('E (legal changelings)', stageEStart);
-    }
-    if (selected.length < 23) {
-      const stageFStart = selected.length;
-      try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }), 'Random all-time', 'generic color-compatible fallback', 'generic-color-filler', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage F generic color-compatible fallback', e); }
-      logTypalStageFill('F (generic color-compatible fallback)', stageFStart);
-    }
+    await runTypalSelectionPipeline({ name, colors, selected, legalEdhrec, randomPool, synergyNames, logger, addMany });
   } else {
     const logNonTypalStageFill = (stage, before) => logger?.line(`Non-typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
     const stageAStart = selected.length;
