@@ -57,16 +57,16 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
     let repaired = false;
     if (issue.type === 'named-card') {
       const target = pool.find((card) => String(card?.name || '').toLowerCase() === String(issue.missingName || '').toLowerCase());
-      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct named-card synergy repair', reason: `required by ${issue.card.name}` }, logger, sources, issue.card);
+      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct named-card synergy repair', category: 'direct-theme', promotedDirect: true, reason: `required by ${issue.card.name}` }, logger, sources, issue.card);
     }
     if (issue.type === 'tutor-target') {
       const target = pool.find((card) => issue.requirement.matches(card) && !sameCard(card, issue.card));
-      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct tutor-target synergy repair', reason: `search target for ${issue.card.name}` }, logger, sources, issue.card);
+      if (target) repaired = addReplacement(selected, target, colors, { section: 'Random all-time', source: 'direct tutor-target synergy repair', category: 'direct-theme', promotedDirect: true, reason: `search target for ${issue.card.name}` }, logger, sources, issue.card);
       if (!repaired) {
         try {
           const fetched = await searchCards(`${issue.requirement.query} id<=${colors.join('')} game:paper lang:en`, { order: 'edhrec', limit: 40, logger });
           const fetchedTarget = fetched.find((card) => issue.requirement.matches(card) && !sameCard(card, issue.card));
-          if (fetchedTarget) repaired = addReplacement(selected, fetchedTarget, colors, { section: 'Random all-time', source: 'Scryfall direct tutor-target synergy repair', reason: `guaranteed target for ${issue.card.name}` }, logger, sources, issue.card);
+          if (fetchedTarget) repaired = addReplacement(selected, fetchedTarget, colors, { section: 'Random all-time', source: 'Scryfall direct tutor-target synergy repair', category: 'direct-theme', promotedDirect: true, reason: `guaranteed target for ${issue.card.name}` }, logger, sources, issue.card);
         } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`direct tutor-target repair for ${issue.card.name}`, e); }
       }
     }
@@ -81,7 +81,7 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
     }
     if (selected.length < 23) {
       for (const card of pool) {
-        if (addIfValid(selected, card, colors, { section: 'Random all-time', source: 'direct synergy backfill', reason: 'replaced unsupported direct-synergy card' }, logger, sources)) break;
+        if (addIfValid(selected, card, colors, { section: 'Random all-time', source: 'direct synergy backfill', category: 'direct-theme', promotedDirect: true, reason: 'replaced unsupported direct-synergy card' }, logger, sources)) break;
       }
     }
     if (!repaired) break;
@@ -91,7 +91,31 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
 }
 
 function validateThemeSynergySources(selected, sources) {
-  return [];
+  const DIRECT_EVIDENCE_MIN = 10;
+  const directEvidence = [];
+  const missingMetadata = [];
+  for (const card of selected.slice(0, 23)) {
+    const meta = sources.get(card.name);
+    if (!meta) {
+      missingMetadata.push(card.name);
+      continue;
+    }
+    const category = meta.category;
+    if (category === 'edhrec-synergy' || meta.promotedDirect === true) {
+      directEvidence.push(card.name);
+      continue;
+    }
+    if (category === 'direct-theme') {
+      directEvidence.push(card.name);
+    }
+  }
+  if (missingMetadata.length) {
+    throw new Error(`Theme synergy metadata missing for selected cards: ${missingMetadata.join(', ')}`);
+  }
+  if (directEvidence.length < DIRECT_EVIDENCE_MIN) {
+    throw new Error(`Theme evidence shortfall: only ${directEvidence.length} direct-evidence cards in first 23 nonlands (minimum ${DIRECT_EVIDENCE_MIN}).`);
+  }
+  return directEvidence;
 }
 
 async function fetchNames(names, logger) {
@@ -162,20 +186,22 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     if (source.includes('/cards/random')) return 'true random card';
     return 'generic color-compatible fallback';
   };
-  const addMany = (cards, section, source, targetCreature, limit) => {
+  const addMany = (cards, section, source, category, targetCreature, limit, promotedDirect = false) => {
     for (const card of ordered(cards, source)) {
       if (selected.length >= limit) break;
       if (targetCreature !== null && isCreature(card) !== targetCreature) continue;
-      addIfValid(selected, card, colors, { section, source, reason: reasonForSource(source, targetCreature) }, logger, sources);
+      addIfValid(selected, card, colors, { section, source, category, promotedDirect, reason: reasonForSource(source, targetCreature) }, logger, sources);
     }
   };
-  const addCoreUntil = (cards, source, targetCreature, stopWhen) => {
+  const addCoreUntil = (cards, source, category, targetCreature, stopWhen, promotedDirect = false) => {
     for (const card of ordered(cards, source)) {
       if (selected.length >= 12 || stopWhen()) break;
       if (targetCreature !== null && isCreature(card) !== targetCreature) continue;
       addIfValid(selected, card, colors, {
         section: 'Core',
         source,
+        category,
+        promotedDirect,
         reason: reasonForSource(source, targetCreature),
       }, logger, sources);
     }
@@ -186,70 +212,69 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const coreFallbackSource = synergyNames.length ? 'Scryfall broad oracle match' : 'Scryfall broad oracle match';
   const themeOracle = exactOracleQuery(name);
   const colorLock = `id<=${colors.join('')} game:paper lang:en`;
-  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', true, () => coreCreatureCount() >= 5);
-  addCoreUntil(pool, coreFallbackSource, true, () => coreCreatureCount() >= 5);
+  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', 'edhrec-synergy', true, () => coreCreatureCount() >= 5);
+  addCoreUntil(pool, coreFallbackSource, 'direct-theme', true, () => coreCreatureCount() >= 5, true);
   if (coreCreatureCount() < 5) {
     try {
       const themedCreatures = await searchCards(`${themeOracle} ${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(themedCreatures, 'theme-oracle creature/payoff fallback', true, () => coreCreatureCount() >= 5);
+      addCoreUntil(themedCreatures, 'theme-oracle creature/payoff fallback', 'direct-theme', true, () => coreCreatureCount() >= 5, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle core creature fallback', e); }
   }
   if (coreCreatureCount() < 5) {
     try {
       const creatureSupport = await searchCards(`${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', true, () => coreCreatureCount() >= 5);
+      addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', 'generic-color-filler', true, () => coreCreatureCount() >= 5);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('core creature fallback', e); }
   }
-  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', false, () => coreNonCreatureCount() >= 7);
-  addCoreUntil(pool, coreFallbackSource, false, () => coreNonCreatureCount() >= 7);
+  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', 'edhrec-synergy', false, () => coreNonCreatureCount() >= 7);
+  addCoreUntil(pool, coreFallbackSource, 'direct-theme', false, () => coreNonCreatureCount() >= 7, true);
   if (coreNonCreatureCount() < 7) {
     try {
       const themedSupport = await searchCards(`${themeOracle} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(themedSupport, 'theme-oracle non-creature support fallback', false, () => coreNonCreatureCount() >= 7);
+      addCoreUntil(themedSupport, 'theme-oracle non-creature support fallback', 'direct-theme', false, () => coreNonCreatureCount() >= 7, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle core non-creature fallback', e); }
   }
   if (coreNonCreatureCount() < 7) {
     try {
       const supportSpells = await searchCards(`${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
-      addCoreUntil(supportSpells, 'color-locked non-creature support fallback (last resort)', false, () => coreNonCreatureCount() >= 7);
+      addCoreUntil(supportSpells, 'color-locked non-creature support fallback (last resort)', 'generic-color-filler', false, () => coreNonCreatureCount() >= 7);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('core non-creature fallback', e); }
   }
-  addCoreUntil(pool, coreFallbackSource, null, () => selected.length >= 12);
+  addCoreUntil(pool, coreFallbackSource, 'direct-theme', null, () => selected.length >= 12, true);
   if (selected.length < 12) logger?.line(`Core shortfall: selected ${selected.length}/12 after fallback hierarchy.`);
   logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
-  if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', null, 23);
-  addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', null, 23);
+  if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
+  addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
   const isTypal = theme?.category === 'typal';
   if (isTypal && selected.length < 23) {
-    try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('changeling fallback', e); }
+    try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('changeling fallback', e); }
   }
   if (selected.length < 23) {
     const host = getHostQuery(name);
     if (host) {
       logger?.line(`Parasitic host injection query used for ${name}: ${host}`);
-      try { addMany(await searchCards(`${host} id<=${colors.join('')} game:paper lang:en`, { limit: 250, logger }), 'Random all-time', 'Scryfall broad oracle match', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('host injector', e); }
+      try { addMany(await searchCards(`${host} id<=${colors.join('')} game:paper lang:en`, { limit: 250, logger }), 'Random all-time', 'Scryfall broad oracle match', 'indirect-theme-support', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('host injector', e); }
     }
   }
   if (selected.length < 23) {
     logger?.line(`Theme-oracle broadened fallback needed: ${selected.length}/23.`);
     try {
       const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger });
-      addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', null, 23);
+      addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', 'theme-adjacent', null, 23, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle broadened fallback', e); }
   }
   if (selected.length < 23) {
     logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);
-    try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger }), 'Random all-time', 'generic color-compatible fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
+    try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger }), 'Random all-time', 'generic color-compatible fallback', 'generic-color-filler', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
   }
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name}; got ${selected.length}`);
   await repairDirectSynergies(selected, pool, colors, logger, sources);
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name} after direct synergy repair; got ${selected.length}`);
   const directIssues = directSynergyIssues(selected);
   if (directIssues.length) throw new Error(`Unresolved direct synergy issues: ${directIssues.map((issue) => issue.detail).join('; ')}`);
-  const invalidThemeSynergy = validateThemeSynergySources(selected, sources);
-  if (invalidThemeSynergy.length) throw new Error(`Direct synergy validation failed: generic cards in core without real theme evidence: ${invalidThemeSynergy.join(', ')}`);
-  logger?.line('Direct synergy validation passed.');
+  validateThemeSynergySources(selected, sources);
+  logger?.line('Theme evidence validation passed (>=10 direct-evidence nonlands).');
   const core = selected.slice(0, 12);
   const random = selected.slice(12, 23);
   logger?.line(`Selected 12 core cards: ${core.map((c) => c.name).join(', ')}`);
