@@ -332,4 +332,30 @@ describe('runPrefetch', () => {
       });
     });
   });
+
+  it('refresh mode skips stale files first, then reports stale source usage when forced', async () => {
+    await withTmpDir(async (tmpDir) => {
+      await mkdir(join(tmpDir, 'pages'), { recursive: true });
+      await writeFile(join(tmpDir, 'pages/themes.json'), JSON.stringify(makeIndexData([{ url: '/themes/equipment' }])));
+      await writeFile(join(tmpDir, 'pages/tribes.json'), JSON.stringify(makeIndexData([{ url: '/tribes/myr' }])));
+
+      const calls = [];
+      await withFetch((url) => {
+        calls.push(url);
+        if (url === 'https://json.edhrec.com/pages/themes.json') return jsonResponse(makeIndexData([{ url: '/themes/equipment' }]));
+        if (url === 'https://json.edhrec.com/pages/tribes.json') return jsonResponse(makeIndexData([{ url: '/tribes/myr' }]));
+        return statusResponse(404);
+      }, async () => {
+        const manifestFresh = await runPrefetch({ allowStale: false, topN: 0, outDir: tmpDir, _requestGapMs: 0 });
+        expect(manifestFresh.sourceCounts['direct-edhrec-json']).toBeGreaterThanOrEqual(2);
+        expect(calls.some((u) => String(u).includes('json.edhrec.com/pages/themes.json'))).toBe(true);
+      });
+
+      await withFetch(() => statusResponse(403), async () => {
+        const manifestStale = await runPrefetch({ allowStale: true, topN: 0, outDir: tmpDir, _requestGapMs: 0 });
+        expect(manifestStale.sourceCounts['local-stale']).toBeGreaterThanOrEqual(2);
+      });
+    });
+  });
+
 });
