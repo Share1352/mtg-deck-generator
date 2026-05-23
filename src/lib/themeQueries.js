@@ -1,28 +1,61 @@
 import { categorizeTheme, themeKey } from './themePool.js';
 const parasitic = new Set(['enchant','auras','equipment','equip','vehicles','crew','saddle','mount','mutate','ninjutsu','buyback','cipher','spectacle','bloodthirst']);
-const THEME_ADJACENT_QUERIES = {
-  riot: [
-    '(keyword:haste OR oracle:/\\bhaste\\b/i)',
-    '(oracle:"+1/+1 counter" OR otag:counters-matter)',
-    '(oracle:/\\bmodified\\b/i OR otag:modified)',
-    '(oracle:/whenever .* attacks?/i OR otag:attack-trigger)',
-    '(oracle:/enters? .* with .* counter/i OR otag:etb-counters)',
-    '(otag:gruul OR (oracle:/\\btrample\\b/i AND oracle:/\\bhaste\\b/i))',
+const THEME_QUERY_TEMPLATES = {
+  mechanicSynonyms: [
+    '(keyword:"{theme}" OR otag:"{themeKey}")',
   ],
-  lifegain: ['(oracle:/\\bgain\\b.*\\blife\\b/i OR otag:lifegain)'],
-  tokens: ['(oracle:/\\bcreate\\b .* token/i OR otag:tokens-matter)'],
-  artifacts: ['(type:artifact OR otag:artifacts-matter)'],
-  sacrifice: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'],
-  aristocrats: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'],
-  spellslinger: ['(oracle:/instant or sorcery/i OR otag:spellslinger)'],
-  counters: ['(oracle:"+1/+1 counter" OR otag:counters-matter)'],
-  graveyard: ['(oracle:/graveyard/i OR otag:graveyard-matters)'],
+  mechanicEnablers: [],
+  mechanicPayoffs: [],
+  closelyRelated: [],
 };
+
+const THEME_QUERY_OVERRIDES = {
+  riot: {
+    mechanicSynonyms: [
+      '(keyword:riot OR oracle:/\\briot\\b/i)',
+      '(oracle:/\\bhaste\\b/i OR keyword:haste)',
+    ],
+    mechanicEnablers: [
+      '(oracle:"+1/+1 counter" OR otag:counters-matter OR oracle:/enters? .* with .* counter/i)',
+      '(oracle:/\\bmodified\\b/i OR otag:modified)',
+    ],
+    mechanicPayoffs: [
+      '(oracle:/whenever .* attacks?/i OR otag:attack-trigger)',
+    ],
+    closelyRelated: [
+      '(otag:gruul OR (oracle:/\\btrample\\b/i AND oracle:/\\bhaste\\b/i))',
+    ],
+  },
+  lifegain: { mechanicPayoffs: ['(oracle:/\\bgain\\b.*\\blife\\b/i OR otag:lifegain)'] },
+  tokens: { mechanicPayoffs: ['(oracle:/\\bcreate\\b .* token/i OR otag:tokens-matter)'] },
+  artifacts: { closelyRelated: ['(type:artifact OR otag:artifacts-matter)'] },
+  sacrifice: { mechanicEnablers: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'] },
+  aristocrats: { mechanicEnablers: ['(oracle:/\\bsacrifice\\b/i OR otag:aristocrats)'] },
+  spellslinger: { closelyRelated: ['(oracle:/instant or sorcery/i OR otag:spellslinger)'] },
+  counters: { mechanicEnablers: ['(oracle:"+1/+1 counter" OR otag:counters-matter)'] },
+  graveyard: { closelyRelated: ['(oracle:/graveyard/i OR otag:graveyard-matters)'] },
+};
+
+function fillThemeTemplate(template, name, key) {
+  return template.replaceAll('{theme}', name).replaceAll('{themeKey}', key);
+}
 
 export function getThemeAdjacentQueries(theme) {
   const name = typeof theme === 'string' ? theme : theme?.name;
   const key = themeKey(name);
-  return THEME_ADJACENT_QUERIES[key] ? [...THEME_ADJACENT_QUERIES[key]] : [];
+  const overrides = THEME_QUERY_OVERRIDES[key] || {};
+  const groups = [
+    'mechanicSynonyms',
+    'mechanicEnablers',
+    'mechanicPayoffs',
+    'closelyRelated',
+  ];
+  const expanded = [];
+  for (const group of groups) {
+    const templates = overrides[group] || THEME_QUERY_TEMPLATES[group] || [];
+    for (const template of templates) expanded.push({ query: fillThemeTemplate(template, String(name || ''), key), group });
+  }
+  return expanded;
 }
 export function exactOracleQuery(theme) { return `oracle:/\\b${String(theme).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b/i`; }
 function pluralizeTypal(name) {

@@ -380,21 +380,42 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     if (selected.length < 23) {
       const stageCStart = selected.length;
       const adjacentQueries = getThemeAdjacentQueries(theme);
-      for (const adjacentQuery of adjacentQueries) {
+      const enablersAndPayoffs = adjacentQueries.filter(({ group }) => group === 'mechanicEnablers' || group === 'mechanicPayoffs');
+      for (const { query } of enablersAndPayoffs) {
         if (selected.length >= 23) break;
         try {
           addMany(
-            await searchCards(`${adjacentQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
+            await searchCards(`${query} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
             'Random all-time',
-            `theme-adjacent query: ${adjacentQuery}`,
+            `theme enabler/payoff query: ${query}`,
             'theme-adjacent',
             null,
             23,
             false,
           );
-        } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent fallback query ${adjacentQuery}`, e); }
+        } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme enabler/payoff fallback query ${query}`, e); }
       }
-      logNonTypalStageFill('C (theme-adjacent queries)', stageCStart);
+      logNonTypalStageFill('C (mechanic enablers/payoffs)', stageCStart);
+
+      if (selected.length < 23) {
+        const stageDStart = selected.length;
+        const adjacentOnly = adjacentQueries.filter(({ group }) => group !== 'mechanicEnablers' && group !== 'mechanicPayoffs');
+        for (const { query } of adjacentOnly) {
+          if (selected.length >= 23) break;
+          try {
+            addMany(
+              await searchCards(`${query} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
+              'Random all-time',
+              `theme-adjacent query: ${query}`,
+              'theme-adjacent',
+              null,
+              23,
+              false,
+            );
+          } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent fallback query ${query}`, e); }
+        }
+        logNonTypalStageFill('D (theme-adjacent queries)', stageDStart);
+      }
     }
   }
   if (selected.length < 23) {
