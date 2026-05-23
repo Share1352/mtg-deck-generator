@@ -139,9 +139,9 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     if (isHardOutage(error)) throw error;
     if (error instanceof EdhrecError && error.status === 403) {
       edhrecAvailable = false;
-      logger?.line(`EDHREC unavailable for ${name} (403). Falling back to Scryfall-only sources.`);
+      logger?.line(`WARNING: NOT REAL EDHREC SYNERGY for ${name}. All EDHREC sources (bundled-static, gh-mirror-raw, direct-edhrec-json, edhrec-next-data, edhrec-s3, cors-proxy) failed with 403. Falling back to Scryfall otag/oracle search only — synergy quality will be lower.`);
     } else {
-      logger?.line(`EDHREC high-synergy lookup failed for ${name}: ${error.message}. Falling back to Scryfall otag/mechanical search.`);
+      logger?.line(`WARNING: NOT REAL EDHREC SYNERGY for ${name}. EDHREC lookup failed: ${error.message}. Falling back to Scryfall otag/oracle search only — synergy quality will be lower.`);
     }
   }
   logger?.line(`EDHREC high-synergy data for ${name}${synergyTag && synergyTag !== name ? ` via ${synergyTag}` : ''}: ${edhrecAvailable ? (synergyNames.length ? `${synergyNames.length} cards` : 'none') : 'unavailable'}`);

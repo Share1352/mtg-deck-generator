@@ -1,13 +1,8 @@
+import { tryAllSources, AllSourcesFailedError, _resetSourcesCache } from './edhrecSources.js';
+
 const EDHREC_API = 'https://json.edhrec.com';
-const TRANSIENT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
-const retry = {
-  maxAttempts: 6,
-  baseBackoffMs: 800,
-  maxBackoffMs: 15000,
-};
-export function configureEdhrecRetry(overrides = {}) { Object.assign(retry, overrides); }
+
 const cache = new Map();
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export class EdhrecError extends Error {
   constructor(message, status, endpoint) {
@@ -17,6 +12,11 @@ export class EdhrecError extends Error {
     this.endpoint = endpoint;
   }
 }
+
+// Kept for backward compatibility with tests / callers that tuned retry behavior.
+// The new source orchestrator manages retries per-source internally.
+const retry = { maxAttempts: 6, baseBackoffMs: 800, maxBackoffMs: 15000 };
+export function configureEdhrecRetry(overrides = {}) { Object.assign(retry, overrides); }
 
 const THEME_ALIASES = {
   equip: 'equipment',
@@ -41,41 +41,23 @@ export function slugifyTheme(name) {
 
 async function edhrecFetch(path, { logger } = {}) {
   if (cache.has(path)) { logger?.line(`EDHREC cache hit ${path}`); return cache.get(path); }
-  const url = `${EDHREC_API}${path}`;
-  let lastError;
-  for (let attempt = 1; attempt <= retry.maxAttempts; attempt += 1) {
-    let res;
-    try {
-      res = await fetch(url);
-    } catch (error) {
-      lastError = error;
-      logger?.line(`EDHREC ${path} network error attempt=${attempt}/${retry.maxAttempts}: ${error.message}`);
-      if (attempt < retry.maxAttempts) {
-        const backoff = Math.min(retry.maxBackoffMs, retry.baseBackoffMs * 2 ** (attempt - 1));
-        logger?.line(`EDHREC waiting ${backoff}ms before retry`);
-        await wait(backoff);
-      }
-      continue;
+  try {
+    const { data, sourceId } = await tryAllSources(path, { logger });
+    cache.set(path, data);
+    if (logger) logger.lastEdhrecSourceId = sourceId;
+    return data;
+  } catch (error) {
+    if (error instanceof AllSourcesFailedError) {
+      const status = error.status || 0;
+      const msg = status === 404
+        ? `EDHREC 404 for ${path}`
+        : status === 403
+          ? `EDHREC unavailable (403) for ${path} after trying all sources`
+          : `EDHREC fetch failed for ${path}: ${error.message}`;
+      throw new EdhrecError(msg, status, `${EDHREC_API}${path}`);
     }
-    logger?.line(`EDHREC ${path} status=${res.status} attempt=${attempt}/${retry.maxAttempts}`);
-    if (res.ok) {
-      const data = await res.json();
-      cache.set(path, data);
-      return data;
-    }
-    if (res.status === 404) throw new EdhrecError(`EDHREC 404 for ${path}`, 404, url);
-    if (res.status === 403) throw new EdhrecError(`EDHREC unavailable (403) for ${path}`, 403, url);
-    if (!TRANSIENT_STATUS.has(res.status)) throw new EdhrecError(`EDHREC non-retryable status ${res.status} for ${path}`, res.status, url);
-    lastError = new EdhrecError(`EDHREC transient ${res.status} for ${path}`, res.status, url);
-    if (attempt < retry.maxAttempts) {
-      const backoff = Math.min(retry.maxBackoffMs, retry.baseBackoffMs * 2 ** (attempt - 1));
-      logger?.line(`EDHREC waiting ${backoff}ms before retry`);
-      await wait(backoff);
-    }
+    throw error;
   }
-  throw lastError instanceof EdhrecError
-    ? lastError
-    : new EdhrecError(`EDHREC ${path} failed after ${retry.maxAttempts} retries: ${lastError?.message || 'unknown error'}`, 0, url);
 }
 
 function collectCardLists(data) {
@@ -207,4 +189,5 @@ export async function getRelatedSectionsForTag(tag, { logger } = {}) {
 
 export function _resetEdhrecCache() {
   cache.clear();
+  _resetSourcesCache();
 }
