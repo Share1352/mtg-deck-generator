@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildThemeQuery, getHostQuery } from '../lib/themeQueries.js';
+import { buildThemeQuery, getHostQuery, getThemeAdjacentQueries } from '../lib/themeQueries.js';
 import { isGenericTypalSupport } from '../lib/cardSelection.js';
 
 describe('theme queries and parasitic support', () => {
@@ -19,6 +19,21 @@ describe('theme queries and parasitic support', () => {
     expect(isGenericTypalSupport({ name: 'Vanquisher\'s Banner' })).toBe(true);
     expect(isGenericTypalSupport({ name: 'Arcane Signet' })).toBe(false);
   });
+
+  it('builds deterministic adjacent query groups for Riot', () => {
+    const riotQueries = getThemeAdjacentQueries('Riot');
+    expect(riotQueries.map((q) => q.group)).toEqual([
+      'mechanicSynonyms',
+      'mechanicSynonyms',
+      'mechanicEnablers',
+      'mechanicEnablers',
+      'mechanicPayoffs',
+      'closelyRelated',
+    ]);
+    expect(riotQueries[0].query).toContain('keyword:riot');
+    expect(riotQueries.some((q) => q.query.includes('modified'))).toBe(true);
+  });
+
   it('injects hosts for parasitic mechanics', () => {
     expect(getHostQuery('Enchant')).toMatch(/creature/i);
     expect(getHostQuery('Equipment')).toMatch(/creature/i);
