@@ -6,6 +6,33 @@ import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, unique
 import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
 import { shuffle } from './random.js';
 
+const GENERIC_TYPAL_SUPPORT_ALLOWLIST = new Set([
+  "herald's horn",
+  "vanquisher's banner",
+  "patchwork banner",
+  "icon of ancestry",
+  'roaming throne',
+  'shared animosity',
+  'kindred discovery',
+  'kindred dominance',
+  'door of destinies',
+  'realmwalker',
+  'maskwood nexus',
+]);
+
+export function isGenericTypalSupport(card) {
+  const normalized = String(card?.name || '').trim().toLowerCase();
+  return GENERIC_TYPAL_SUPPORT_ALLOWLIST.has(normalized);
+}
+
+function pluralizeTypalName(name) {
+  const n = String(name || '');
+  if (/f$/i.test(n)) return `${n.slice(0, -1)}ves`;
+  if (/[sxz]$/i.test(n) || /ch$/i.test(n) || /sh$/i.test(n)) return `${n}es`;
+  if (/y$/i.test(n) && !/[aeiou]y$/i.test(n)) return `${n.slice(0, -1)}ies`;
+  return `${n}s`;
+}
+
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
@@ -244,11 +271,44 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   if (selected.length < 12) logger?.line(`Core shortfall: selected ${selected.length}/12 after fallback hierarchy.`);
   logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
-  if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
-  addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
   const isTypal = theme?.category === 'typal';
-  if (isTypal && selected.length < 23) {
-    try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('changeling fallback', e); }
+  const logTypalStageFill = (stage, before) => logger?.line(`Typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
+  if (isTypal) {
+    const typalName = String(name || '');
+    const pluralTypalName = pluralizeTypalName(typalName);
+    const typalMentionQuery = `(oracle:/\\b${typalName}\\b/i OR oracle:/\\b${pluralTypalName}\\b/i)`;
+    const creatureTypeQuery = `type:"${typalName}" ${colorLock} -type:land`;
+    const stageAStart = selected.length;
+    if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
+    logTypalStageFill('A (EDHREC synergy)', stageAStart);
+    if (selected.length < 23) {
+      const stageBStart = selected.length;
+      try { addMany(await searchCards(creatureTypeQuery, { order: 'edhrec', limit: 120, logger }), 'Random all-time', 'typal-direct-type-line', 'direct-theme', true, 23, true); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage B direct type-line creatures', e); }
+      logTypalStageFill('B (direct type-line creatures)', stageBStart);
+    }
+    if (selected.length < 23) {
+      const stageCStart = selected.length;
+      try { addMany(await searchCards(`${typalMentionQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }), 'Random all-time', 'typal-direct-mention', 'direct-theme', null, 23, true); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage C oracle singular/plural mention', e); }
+      logTypalStageFill('C (direct mention cards)', stageCStart);
+    }
+    if (selected.length < 23) {
+      const stageDStart = selected.length;
+      addMany(randomPool.filter((card) => isGenericTypalSupport(card)), 'Random all-time', 'typal-generic-support-allowlist', 'typal-support', null, 23, true);
+      logTypalStageFill('D (generic typal support)', stageDStart);
+    }
+    if (selected.length < 23) {
+      const stageEStart = selected.length;
+      try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage E changeling fallback', e); }
+      logTypalStageFill('E (legal changelings)', stageEStart);
+    }
+    if (selected.length < 23) {
+      const stageFStart = selected.length;
+      try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }), 'Random all-time', 'generic color-compatible fallback', 'generic-color-filler', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal stage F generic color-compatible fallback', e); }
+      logTypalStageFill('F (generic color-compatible fallback)', stageFStart);
+    }
+  } else {
+    if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
+    addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
   }
   if (selected.length < 23) {
     const host = getHostQuery(name);
