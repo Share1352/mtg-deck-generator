@@ -2,7 +2,7 @@ name: Refresh EDHREC mirror
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # 07:00 UTC daily
+    - cron: '0 20 * * 0'   # 20:00 UTC Sunday = 03:00 Monday Asia/Ho_Chi_Minh (UTC+7)
   workflow_dispatch:
     inputs:
       top_n:
