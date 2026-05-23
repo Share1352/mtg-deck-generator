@@ -63,6 +63,7 @@ async function edhrecFetch(path, { logger } = {}) {
 function collectCardLists(data) {
   const out = [];
   const lists = data?.container?.json_dict?.card_lists
+    || data?.container?.json_dict?.cardlists
     || data?.json_dict?.card_lists
     || data?.cardlists
     || data?.card_lists
