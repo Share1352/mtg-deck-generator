@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Prefetch EDHREC mirror
+        run: node scripts/prefetch-edhrec.js --top-n=1000 --allow-stale
+
       - name: Verify EDHREC mirror
         run: node scripts/verify-edhrec-mirror.js
 

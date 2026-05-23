@@ -35,8 +35,8 @@ function isMissing(sourceId, path) {
   return negativeCache.get(sourceId)?.has(path) || false;
 }
 
-// Diagnostic state – one-shot mirror availability log per session.
-const _diag = { mirrorStatusLogged: false, manifestLogged: false };
+// Diagnostic state – one-shot logs per session to avoid log spam.
+const _diag = { mirrorStatusLogged: false, manifestLogged: false, directForbiddenLogged: false };
 
 export function _resetSourcesCache() {
   negativeCache.clear();
@@ -44,6 +44,7 @@ export function _resetSourcesCache() {
   _nextBuildIdCache.refreshedAt = 0;
   _diag.mirrorStatusLogged = false;
   _diag.manifestLogged = false;
+  _diag.directForbiddenLogged = false;
 }
 
 async function fetchJsonOnce(url, { logger, sourceId } = {}) {
@@ -166,6 +167,14 @@ function pathToNextDataPath(path) {
   return path.replace(/^\/pages\//, '/');
 }
 
+// Normalize _next/data responses: unwrap pageProps.data and rename cardlists→card_lists.
+function normalizeNextDataResponse(raw) {
+  const data = raw?.pageProps?.data ?? raw;
+  const jd = data?.container?.json_dict;
+  if (jd && jd.cardlists && !jd.card_lists) jd.card_lists = jd.cardlists;
+  return data;
+}
+
 const edhrecNextDataSource = {
   id: 'edhrec-next-data',
   async fetch(path, ctx) {
@@ -176,7 +185,20 @@ const edhrecNextDataSource = {
     const nextPath = pathToNextDataPath(path);
     const url = `https://edhrec.com/_next/data/${buildId}${nextPath}`;
     try {
-      return await fetchJsonOnce(url, { ...ctx, sourceId: this.id });
+      let raw = await fetchJsonOnce(url, { ...ctx, sourceId: this.id });
+
+      // Follow one level of Next.js server-side redirect (EDHREC now routes old paths to /tags/)
+      if (raw?.pageProps?.__N_REDIRECT) {
+        const redirectTarget = raw.pageProps.__N_REDIRECT;
+        const redirectUrl = `https://edhrec.com/_next/data/${buildId}${redirectTarget}.json`;
+        ctx?.logger?.line(`EDHREC source edhrec-next-data: redirect to ${redirectUrl}`);
+        raw = await fetchJsonOnce(redirectUrl, { ...ctx, sourceId: this.id });
+        if (raw?.pageProps?.__N_REDIRECT) {
+          throw new SourceUnavailableError('double redirect', { sourceId: this.id });
+        }
+      }
+
+      return normalizeNextDataResponse(raw);
     } catch (e) {
       if (e instanceof SourceUnavailableError && e.status === 404 && buildId === _nextBuildIdCache.value) {
         // buildId may have rotated; refresh once and retry
@@ -184,7 +206,8 @@ const edhrecNextDataSource = {
           const fresh = await getEdhrecNextBuildId(ctx, { force: true });
           if (fresh !== buildId) {
             const retryUrl = `https://edhrec.com/_next/data/${fresh}${nextPath}`;
-            return await fetchJsonOnce(retryUrl, { ...ctx, sourceId: this.id });
+            const raw = await fetchJsonOnce(retryUrl, { ...ctx, sourceId: this.id });
+            return normalizeNextDataResponse(raw);
           }
         } catch {}
       }
@@ -323,6 +346,12 @@ export async function tryAllSources(path, { logger } = {}) {
           'Bundled EDHREC mirror missing. Run refresh-edhrec-mirror workflow or prefetch-edhrec before deploy.',
         );
         _diag.mirrorStatusLogged = true;
+      }
+
+      // One-shot log when the direct EDHREC endpoint returns 403.
+      if (source.id === 'direct-edhrec-json' && status === 403 && !_diag.directForbiddenLogged) {
+        logger?.line('EDHREC direct json.edhrec.com returned 403 — trying fallback sources');
+        _diag.directForbiddenLogged = true;
       }
 
       // 403 is the worst because it's the symptom we're trying to overcome — preserve it
