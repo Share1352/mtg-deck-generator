@@ -294,12 +294,14 @@ export async function runPrefetch({
   const allTargets = [];
   const seenKey = new Set();
   const sourceCounts = {};
+  let fetchedFreshAt = null;
   const failedRequiredPages = [];
   const failedPages = [];
   const errorsPreview = [];
 
   function countSource(src) {
     sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+    if (src !== 'local-stale' && src !== 'stub') fetchedFreshAt = new Date().toISOString();
   }
 
   // Step 1: index pages
@@ -379,6 +381,7 @@ export async function runPrefetch({
   // Step 3: write manifest
   const manifest = {
     generatedAt: new Date().toISOString(),
+    fetchedFreshAt,
     topN,
     indexPagesFetched,
     indexPagesStubbed,
@@ -386,8 +389,12 @@ export async function runPrefetch({
     failedPages: failedPages.slice(0, 50),
     totalDiscoveredSlugs: allTargets.length,
     sourceCounts,
+    staleFilesUsed: sourceCounts['local-stale'] || 0,
     errorsPreview: errorsPreview.slice(0, 10),
   };
+  if ((sourceCounts['local-stale'] || 0) >= Math.max(1, themePagesFetched + indexPagesFetched - 1)) {
+    console.warn('prefetch-edhrec: WARNING most files came from local-stale fallback.');
+  }
   await writeJson(join(outDir, 'manifest.json'), manifest);
   console.log(
     `prefetch-edhrec: wrote manifest.json (themePagesFetched=${themePagesFetched}, ` +

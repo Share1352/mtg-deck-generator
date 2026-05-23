@@ -37,7 +37,7 @@ jobs:
         run: npm ci
 
       - name: Prefetch EDHREC into public/data/edhrec
-        run: node scripts/prefetch-edhrec.js --top-n=${{ github.event.inputs.top_n || '1000' }} --allow-stale
+        run: node scripts/prefetch-edhrec.js --top-n=${{ github.event.inputs.top_n || '1000' }}
 
       - name: Verify EDHREC mirror
         run: node scripts/verify-edhrec-mirror.js
