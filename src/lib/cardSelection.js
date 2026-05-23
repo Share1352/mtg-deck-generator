@@ -39,6 +39,27 @@ function isHardOutage(error) {
   return false;
 }
 
+function normalizeSourceModel(source = {}) {
+  const stage = source.stage || source.section || 'unknown-stage';
+  const kind = source.kind || (
+    source.category === 'edhrec-synergy' || source.promotedDirect === true || source.category === 'direct-theme'
+      ? 'direct_evidence'
+      : source.category === 'typal-support'
+        ? 'typal_support'
+        : source.category === 'theme-adjacent' || source.category === 'indirect-theme-support'
+          ? 'theme_adjacent'
+          : 'generic_filler'
+  );
+  return {
+    ...source,
+    source: source.source || 'unknown-source',
+    stage,
+    kind,
+    query: source.query || null,
+    reason: source.reason || null,
+  };
+}
+
 function addIfValid(selected, card, colors, source, logger, sources) {
   if (selected.length >= 23) return false;
   if (!isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })) return false;
@@ -46,8 +67,9 @@ function addIfValid(selected, card, colors, source, logger, sources) {
   if (!colorIdentityWithin(card, colors)) return false;
   if (selected.some((c) => sameCard(c, card))) return false;
   selected.push(card);
-  sources.set(card.name, source);
-  logger?.line(`${source.section} card added: ${card.name} / source: ${source.source} / reason: ${source.reason}`);
+  const normalizedSource = normalizeSourceModel(source);
+  sources.set(card.name, normalizedSource);
+  logger?.line(`${normalizedSource.section} card added: ${card.name} / source: ${normalizedSource.source} / stage: ${normalizedSource.stage} / kind: ${normalizedSource.kind} / reason: ${normalizedSource.reason || 'n/a'}`);
   return true;
 }
 
@@ -66,9 +88,10 @@ function addReplacement(selected, card, colors, source, logger, sources, protect
   if (index < 0) return false;
   const removed = selected[index];
   selected[index] = card;
-  sources.set(card.name, source);
+  const normalizedSource = normalizeSourceModel(source);
+  sources.set(card.name, normalizedSource);
   if (removed) sources.delete(removed.name);
-  logger?.line(`${source.section} card ${removed ? 'replaced' : 'added'}: ${card.name}${removed ? ` over ${removed.name}` : ''} / source: ${source.source} / reason: ${source.reason}`);
+  logger?.line(`${normalizedSource.section} card ${removed ? 'replaced' : 'added'}: ${card.name}${removed ? ` over ${removed.name}` : ''} / source: ${normalizedSource.source} / stage: ${normalizedSource.stage} / kind: ${normalizedSource.kind} / reason: ${normalizedSource.reason || 'n/a'}`);
   return true;
 }
 
@@ -118,31 +141,62 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
 }
 
 function validateThemeSynergySources(selected, sources) {
-  const DIRECT_EVIDENCE_MIN = 10;
-  const directEvidence = [];
+  const minimumRequired = 10;
+  const directEvidenceCards = [];
+  const fallbackOnlyCardIds = [];
   const missingMetadata = [];
   for (const card of selected.slice(0, 23)) {
-    const meta = sources.get(card.name);
-    if (!meta) {
+    const existingMeta = sources.get(card.name);
+    if (!existingMeta) {
       missingMetadata.push(card.name);
       continue;
     }
-    const category = meta.category;
-    if (category === 'edhrec-synergy' || meta.promotedDirect === true) {
-      directEvidence.push(card.name);
-      continue;
-    }
-    if (category === 'direct-theme') {
-      directEvidence.push(card.name);
-    }
+    const meta = normalizeSourceModel(existingMeta);
+    if (meta.kind === 'direct_evidence') directEvidenceCards.push(card.name);
+    else fallbackOnlyCardIds.push(card.name);
   }
-  if (missingMetadata.length) {
-    throw new Error(`Theme synergy metadata missing for selected cards: ${missingMetadata.join(', ')}`);
+  const directEvidenceCount = directEvidenceCards.length;
+  const passesMinimum = directEvidenceCount >= minimumRequired;
+  return { directEvidenceCount, minimumRequired, passesMinimum, directEvidenceCards, fallbackOnlyCardIds, missingMetadata };
+}
+
+function rebalanceToMinimumDirectEvidence({ selected, sources, pool, colors, logger }) {
+  let validation = validateThemeSynergySources(selected, sources);
+  if (validation.passesMinimum) return validation;
+  logger?.line(`Theme evidence shortfall before rebalance: ${validation.directEvidenceCount}/${validation.minimumRequired}. Attempting deterministic evidence-first refill.`);
+
+  const evidenceCandidates = pool
+    .filter((card) => !selected.some((s) => sameCard(s, card)))
+    .filter((card) => isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false }))
+    .filter((card) => colorIdentityWithin(card, colors));
+
+  const fallbackIndices = selected
+    .slice(0, 23)
+    .map((card, idx) => ({ idx, meta: normalizeSourceModel(sources.get(card.name)) }))
+    .filter(({ meta }) => meta.kind !== 'direct_evidence')
+    .map(({ idx }) => idx)
+    .reverse();
+
+  for (const idx of fallbackIndices) {
+    validation = validateThemeSynergySources(selected, sources);
+    if (validation.passesMinimum) break;
+    const next = evidenceCandidates.shift();
+    if (!next) break;
+    const removed = selected[idx];
+    selected[idx] = next;
+    sources.delete(removed.name);
+    sources.set(next.name, normalizeSourceModel({
+      section: 'Random all-time',
+      stage: 'evidence-rebalance',
+      source: 'deterministic evidence-first rebalance',
+      category: 'direct-theme',
+      kind: 'direct_evidence',
+      promotedDirect: true,
+      reason: `replaced fallback-only card ${removed.name}`,
+    }));
+    logger?.line(`Evidence rebalance replaced ${removed.name} -> ${next.name} (stage: evidence-rebalance).`);
   }
-  if (directEvidence.length < DIRECT_EVIDENCE_MIN) {
-    throw new Error(`Theme evidence shortfall: only ${directEvidence.length} direct-evidence cards in first 23 nonlands (minimum ${DIRECT_EVIDENCE_MIN}).`);
-  }
-  return directEvidence;
+  return validateThemeSynergySources(selected, sources);
 }
 
 async function fetchNames(names, logger) {
@@ -362,8 +416,14 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   if (selected.length < 23) throw new Error(`Could not build 23 non-land cards for ${name} after direct synergy repair; got ${selected.length}`);
   const directIssues = directSynergyIssues(selected);
   if (directIssues.length) throw new Error(`Unresolved direct synergy issues: ${directIssues.map((issue) => issue.detail).join('; ')}`);
-  validateThemeSynergySources(selected, sources);
-  logger?.line('Theme evidence validation passed (>=10 direct-evidence nonlands).');
+  let themeValidation = validateThemeSynergySources(selected, sources);
+  logger?.line(`Theme evidence validation before rebalance: direct_evidence=${themeValidation.directEvidenceCount}/${themeValidation.minimumRequired}; fallback_only=${themeValidation.fallbackOnlyCardIds.length}.`);
+  if (!themeValidation.passesMinimum) themeValidation = rebalanceToMinimumDirectEvidence({ selected, sources, pool, colors, logger });
+  if (themeValidation.missingMetadata.length) throw new Error(`Theme synergy metadata missing for selected cards: ${themeValidation.missingMetadata.join(', ')}`);
+  if (!themeValidation.passesMinimum) {
+    throw new Error(`Theme evidence shortfall after deterministic evidence-first rebalance: ${themeValidation.directEvidenceCount}/${themeValidation.minimumRequired}. Fallback-only cards: ${themeValidation.fallbackOnlyCardIds.join(', ') || 'none'}.`);
+  }
+  logger?.line(`Theme evidence validation passed: direct_evidence=${themeValidation.directEvidenceCount}/${themeValidation.minimumRequired}.`);
   const core = selected.slice(0, 12);
   const random = selected.slice(12, 23);
   logger?.line(`Selected 12 core cards: ${core.map((c) => c.name).join(', ')}`);
