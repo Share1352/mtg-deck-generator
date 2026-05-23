@@ -178,9 +178,12 @@ async function getNonbasics({ colors, theme, count, existing = [], logger, rng =
     catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme non-basic lands', e); }
   }
   const playableThemeCards = filterPlayableLandPool(themeCards, colors, existing);
-  logger?.line(`Theme non-basic land pool: ${playableThemeCards.length} playable candidate(s) for ${theme || 'no theme'}.`);
+  const rejectedThemeCards = uniqueByOracle(themeCards).filter((card) => !colorIdentityWithin(card, colors));
+  logger?.line(`Theme-related nonbasic lands found: ${playableThemeCards.length}`);
+  logger?.line(`Theme-related nonbasic lands rejected by color identity: ${rejectedThemeCards.map((c) => c.name).join(', ') || 'none'}`);
 
   let selected = selectNonbasicLandsFromPools({ themeCards: playableThemeCards, colors, count, existing, rng });
+  logger?.line(`Theme-related nonbasic lands added: ${selected.map((c) => c.name).join(', ') || 'none'}`);
   if (selected.length < count) {
     logger?.line(`Theme-synergistic non-basic lands exhausted after ${selected.length}/${count}; filling remaining land slots with absolutely random color-compatible non-basics from Scryfall.`);
     const randomCards = await randomCompatibleNonbasics(genericQuery, count - selected.length, colors, [...existing, ...selected], logger);

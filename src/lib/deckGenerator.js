@@ -77,7 +77,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {} } 
         wrapped.cause = error;
         throw wrapped;
       }
-      logger.line(`Rerolled theme "${theme.name}" because it could not produce a valid 23-card spell package plus lands: ${error.message}`);
+      logger.line(`Rerolled theme "${theme.name}" because it could not produce a valid themed 23-card package under the 10-card direct theme minimum: ${error.message}`);
     }
   }
   throw new Error(`Generation failed after retries: ${lastError?.message || 'unknown error'}\n\n${logger.text()}`);

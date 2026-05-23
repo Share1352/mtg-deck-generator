@@ -6,6 +6,12 @@ describe('theme queries and parasitic support', () => {
     expect(buildThemeQuery('Mite')).not.toContain('Smite');
     expect(buildThemeQuery('Myr')).toContain('type:"Myr"');
   });
+  it('preserves typal category for object themes and includes plural support', () => {
+    const q = buildThemeQuery({ name: 'Dwarf', category: 'typal' });
+    expect(q).toContain('type:"Dwarf"');
+    expect(q).toContain('oracle:/\\bDwarves\\b/i');
+    expect(q).not.toContain('keyword:"Dwarf"');
+  });
   it('injects hosts for parasitic mechanics', () => {
     expect(getHostQuery('Enchant')).toMatch(/creature/i);
     expect(getHostQuery('Equipment')).toMatch(/creature/i);

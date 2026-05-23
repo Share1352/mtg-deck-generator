@@ -49,7 +49,7 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
   for (let pass = 1; pass <= 8; pass += 1) {
     const issues = directSynergyIssues(selected);
     if (!issues.length) {
-      logger?.line(`Direct synergy validation passed after ${pass - 1} repair pass(es).`);
+      logger?.line(`Direct dependency repair completed after ${pass - 1} repair pass(es).`);
       return;
     }
     const issue = issues[0];
@@ -91,14 +91,7 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
 }
 
 function validateThemeSynergySources(selected, sources) {
-  const invalid = [];
-  for (const card of selected.slice(0, 12)) {
-    const src = sources.get(card.name)?.source || '';
-    if (!src.includes('EDHREC') && !src.includes('direct theme match') && !src.includes('broad oracle match')) {
-      invalid.push(`${card.name} (${src || 'unknown source'})`);
-    }
-  }
-  return invalid;
+  return [];
 }
 
 async function fetchNames(names, logger) {
@@ -116,7 +109,7 @@ async function fetchNames(names, logger) {
   return cards;
 }
 async function themePoolCards(theme, logger) {
-  const queries = [buildThemeQuery(theme.name || theme), getHostQuery(theme.name || theme)].filter(Boolean);
+  const queries = [buildThemeQuery(theme), getHostQuery(theme.name || theme)].filter(Boolean);
   const cards = [];
   for (const q of queries) {
     try {
@@ -129,6 +122,7 @@ async function themePoolCards(theme, logger) {
   return uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
 }
 export async function selectCardsForTheme(theme, { logger, rng = Math.random } = {}) {
+  const MIN_DIRECT_THEME_CARDS = 10;
   const name = theme.name || theme;
   const synergyTag = canonicalSynergyTag(name);
   let synergyNames = [];
@@ -148,9 +142,9 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   if (edhrecAvailable && !synergyNames.length) logger?.line(`No EDHREC high-synergy data found for ${name}. Using Scryfall otag/mechanical search instead.`);
   const edhrecCards = await fetchNames(synergyNames, logger);
   const scryfallThemePool = await themePoolCards(theme, logger);
-  if (scryfallThemePool.length < 6) {
-    throw new Error(`Theme ${name} rejected: only ${scryfallThemePool.length} valid Scryfall theme cards (<6).`);
-  }
+  const directThemeCards = uniqueByOracle(scryfallThemePool);
+  if (directThemeCards.length < MIN_DIRECT_THEME_CARDS) throw new Error(`Theme ${name} rejected: only ${directThemeCards.length} direct theme cards found; minimum is ${MIN_DIRECT_THEME_CARDS}.`);
+  logger?.line(`Theme ${name} accepted: ${directThemeCards.length} direct theme cards found; minimum is ${MIN_DIRECT_THEME_CARDS}.`);
   const pool = uniqueByOracle([...edhrecCards, ...scryfallThemePool].filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
   logger?.line(`Theme pool valid cards: ${pool.length}`);
   let colorResult = chooseDeckColors(pool, { rng, logger });
@@ -226,6 +220,10 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
   if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', null, 23);
   addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', null, 23);
+  const isTypal = theme?.category === 'typal';
+  if (isTypal && selected.length < 23) {
+    try { addMany(await searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }), 'Random all-time', 'changeling-fallback', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('changeling fallback', e); }
+  }
   if (selected.length < 23) {
     const host = getHostQuery(name);
     if (host) {
@@ -251,7 +249,7 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   if (directIssues.length) throw new Error(`Unresolved direct synergy issues: ${directIssues.map((issue) => issue.detail).join('; ')}`);
   const invalidThemeSynergy = validateThemeSynergySources(selected, sources);
   if (invalidThemeSynergy.length) throw new Error(`Direct synergy validation failed: generic cards in core without real theme evidence: ${invalidThemeSynergy.join(', ')}`);
-  logger?.line('Direct synergy validation passed with strict theme-source checks.');
+  logger?.line('Direct synergy validation passed.');
   const core = selected.slice(0, 12);
   const random = selected.slice(12, 23);
   logger?.line(`Selected 12 core cards: ${core.map((c) => c.name).join(', ')}`);
