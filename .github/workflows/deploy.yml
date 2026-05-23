@@ -37,7 +37,7 @@ jobs:
         run: node scripts/verify-edhrec-mirror.js
 
       - name: Build
-        run: npm run build
+        run: npx vite build
 
       - name: Prepare Pages files
         run: |
