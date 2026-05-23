@@ -70,6 +70,10 @@ async function runTypalSelectionPipeline({
   await runStage('F (generic filler)', async () => searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }));
 }
 
+export async function __runTypalSelectionPipelineForTest(args) {
+  return runTypalSelectionPipeline(args);
+}
+
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
@@ -177,7 +181,7 @@ async function repairDirectSynergies(selected, pool, colors, logger, sources) {
   if (remaining.length) logger?.line(`Direct synergy validation remaining issues: ${remaining.map((issue) => issue.detail).join('; ')}`);
 }
 
-function validateThemeSynergySources(selected, sources) {
+export function validateThemeSynergySources(selected, sources) {
   const minimumRequired = 10;
   const directEvidenceCards = [];
   const fallbackOnlyCardIds = [];
@@ -234,6 +238,10 @@ function rebalanceToMinimumDirectEvidence({ selected, sources, pool, colors, log
     logger?.line(`Evidence rebalance replaced ${removed.name} -> ${next.name} (stage: evidence-rebalance).`);
   }
   return validateThemeSynergySources(selected, sources);
+}
+
+export function __rebalanceToMinimumDirectEvidenceForTest(args) {
+  return rebalanceToMinimumDirectEvidence(args);
 }
 
 async function fetchNames(names, logger) {
