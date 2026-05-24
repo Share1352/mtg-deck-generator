@@ -75,6 +75,46 @@ function collectCardLists(data) {
   return out;
 }
 
+// Sections on a per-theme EDHREC page that contain real card recommendations.
+// Skip commander rosters (Top Commanders / New Commanders) and land utility lists
+// (those are mostly noise for a non-Commander theme deck — generic lands like
+// Command Tower, Reliquary Tower, etc.). Everything else is fair game.
+const SYNERGY_SECTION_PATTERNS = [
+  /high\s*[- ]?synergy/i,
+  /^top\s*cards?$/i,
+  /game\s*changers?/i,
+  /^new\s*cards?$/i,
+  /^creatures?$/i,
+  /^instants?$/i,
+  /^sorceries$/i,
+  /^enchantments?$/i,
+  /^planeswalkers?$/i,
+  /^battles?$/i,
+  /utility\s*artifacts?/i,
+  /mana\s*artifacts?/i,
+  /^artifacts?$/i,
+];
+
+const SYNERGY_SECTION_SKIP = [
+  /commanders?/i,
+  /\blands?\b/i,
+];
+
+function isSynergySection(header) {
+  const h = String(header || '');
+  if (SYNERGY_SECTION_SKIP.some((re) => re.test(h))) return false;
+  return SYNERGY_SECTION_PATTERNS.some((re) => re.test(h));
+}
+
+function isHighSynergyHeader(header) {
+  return /high\s*[- ]?synergy|top\s*synergy/i.test(String(header || ''));
+}
+
+function synergyScore(item) {
+  const n = Number(item?.synergy);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function extractCardNames(data) {
   const names = [];
   for (const list of collectCardLists(data)) {
@@ -134,29 +174,81 @@ export async function getAllEdhrecThemes({ logger } = {}) {
 
 const THEME_PAGE_CATEGORIES = ['themes', 'tribes', 'typal'];
 
-export async function getSynergyCardsForTag(tag, { logger } = {}) {
+// Pull as many synergy-relevant card names as the theme page exposes.
+// Returns names ordered by section priority (High Synergy first), then by per-card
+// synergy score descending within each section. Duplicates across sections are
+// deduplicated, keeping the higher-priority placement.
+//
+// `maxNames` caps how many names we return — full theme pages can carry 300+ cards
+// and each name becomes a Scryfall /cards/named lookup downstream, so a cap keeps
+// builds responsive without losing meaningful synergy coverage.
+export async function getSynergyCardsForTag(tag, { logger, maxNames = 120 } = {}) {
   const slug = slugifyTheme(canonicalSynergyTag(tag));
   if (!slug) return [];
   let lastError;
   for (const category of THEME_PAGE_CATEGORIES) {
     try {
       const data = await edhrecFetch(`/pages/${category}/${slug}.json`, { logger });
-      const allNames = extractCardNames(data);
-      const highSynergy = [];
+      const ordered = [];
+      const seen = new Set();
+      let highCount = 0;
+      let breakdown = [];
+
+      // Pass 1: explicit "High Synergy" sections (always front of list).
       for (const list of collectCardLists(data)) {
-        if (/high\s*synergy|high-synergy|top\s*synergy/i.test(list.header)) {
-          for (const item of list.items) {
-            const name = item?.name || item?.cardview?.name;
-            if (name) highSynergy.push(String(name));
-          }
+        if (!isHighSynergyHeader(list.header)) continue;
+        const items = [...list.items].sort((a, b) => synergyScore(b) - synergyScore(a));
+        let added = 0;
+        for (const item of items) {
+          const name = item?.name || item?.cardview?.name;
+          if (!name) continue;
+          const key = String(name).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          ordered.push(String(name));
+          added += 1;
         }
+        if (added) { highCount += added; breakdown.push(`${list.header}=${added}`); }
       }
-      if (highSynergy.length) {
-        logger?.line(`EDHREC /${category}/${slug}: ${highSynergy.length} high-synergy names`);
-        return highSynergy;
+
+      // Pass 2: every other synergy-relevant section (Top Cards, Creatures, Instants, ...).
+      for (const list of collectCardLists(data)) {
+        if (isHighSynergyHeader(list.header)) continue;
+        if (!isSynergySection(list.header)) continue;
+        const items = [...list.items].sort((a, b) => synergyScore(b) - synergyScore(a));
+        let added = 0;
+        for (const item of items) {
+          const name = item?.name || item?.cardview?.name;
+          if (!name) continue;
+          const key = String(name).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          ordered.push(String(name));
+          added += 1;
+        }
+        if (added) breakdown.push(`${list.header}=${added}`);
       }
-      logger?.line(`EDHREC /${category}/${slug}: ${allNames.length} total card names (no explicit high-synergy section)`);
-      if (allNames.length) return allNames;
+
+      if (ordered.length) {
+        const capped = ordered.slice(0, maxNames);
+        logger?.line(`EDHREC /${category}/${slug}: ${ordered.length} synergy names (${highCount} from high-synergy section, returning top ${capped.length}) — sections: ${breakdown.join(', ')}`);
+        return capped;
+      }
+
+      // Fallback: page exists but no recognized synergy section — take every name we can see.
+      const allNames = extractCardNames(data);
+      if (allNames.length) {
+        const deduped = [];
+        for (const name of allNames) {
+          const key = String(name).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(String(name));
+        }
+        const capped = deduped.slice(0, maxNames);
+        logger?.line(`EDHREC /${category}/${slug}: ${deduped.length} total card names (no explicit synergy section, returning top ${capped.length})`);
+        return capped;
+      }
     } catch (error) {
       if (error instanceof EdhrecError && error.status === 404) {
         logger?.line(`EDHREC /${category}/${slug}: 404 — not present`);

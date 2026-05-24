@@ -106,7 +106,10 @@ const bundledStaticSource = {
     const url = bundledStaticUrl(path);
     try { return await fetchJsonOnce(url, { ...ctx, sourceId: this.id }); }
     catch (e) {
-      if (e instanceof SourceUnavailableError) recordMissing(this.id, path);
+      // Only cache permanent misses (404/403). Network errors and 5xx may be transient.
+      if (e instanceof SourceUnavailableError && (e.status === 404 || e.status === 403)) {
+        recordMissing(this.id, path);
+      }
       throw e;
     }
   },

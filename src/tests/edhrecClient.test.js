@@ -26,15 +26,16 @@ describe('EDHREC online client', () => {
     expect(slugifyTheme("Hexproof from")).toBe('hexproof-from');
   });
 
-  it('fetches synergy cards online and prefers explicit high-synergy section', async () => {
+  it('fetches synergy cards online and orders high-synergy section before broader pools', async () => {
     _resetEdhrecCache();
     await withMockFetch({
       '/pages/themes/equipment.json': {
         container: {
           json_dict: {
             card_lists: [
-              { header: 'High Synergy Cards', cardviews: [{ name: 'Puresteel Paladin' }, { name: 'Sram, Senior Edificer' }] },
-              { header: 'Top Cards', cardviews: [{ name: 'Sol Ring' }] },
+              { header: 'High Synergy Cards', cardviews: [{ name: 'Puresteel Paladin', synergy: 0.7 }, { name: 'Sram, Senior Edificer', synergy: 0.6 }] },
+              { header: 'Top Cards', cardviews: [{ name: 'Sol Ring', synergy: 0.4 }] },
+              { header: 'Top Commanders', cardviews: [{ name: 'Sram Commander Edition', synergy: 0 }] },
             ],
           },
         },
@@ -43,7 +44,12 @@ describe('EDHREC online client', () => {
       const cards = await getSynergyCardsForTag('Equip');
       expect(cards).toContain('Puresteel Paladin');
       expect(cards).toContain('Sram, Senior Edificer');
-      expect(cards).not.toContain('Sol Ring');
+      // Broader synergy pool (Top Cards) is now included for richer fallback.
+      expect(cards).toContain('Sol Ring');
+      // Commander sections are still excluded (noise for non-Commander deck).
+      expect(cards).not.toContain('Sram Commander Edition');
+      // High-synergy section must appear before Top Cards in the ordering.
+      expect(cards.indexOf('Puresteel Paladin')).toBeLessThan(cards.indexOf('Sol Ring'));
     });
   });
 

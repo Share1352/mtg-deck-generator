@@ -12,4 +12,10 @@ button { font: inherit; } .single-button { min-height: 100vh; display: grid; pla
 .play-cta { display: flex; justify-content: center; margin: 0 0 2rem; } .forge-button.play { font-size: clamp(1rem, 2.4vw, 1.4rem); padding: 1.1rem 2.2rem; background: linear-gradient(135deg, #86efac, #38bdf8, #c084fc); }
 .actions { display: flex; flex-wrap: wrap; gap: 1rem; margin: 2rem 0; } .secondary { border: 1px solid #ffffff33; background: #ffffff14; color: #fff7ed; border-radius: 999px; padding: .9rem 1.2rem; cursor: pointer; font-weight: 800; } .secondary:hover { background: #ffffff22; }
 .log { margin-top: 1rem; background: #0008; border-radius: 18px; padding: 1rem; } pre { white-space: pre-wrap; max-height: 360px; overflow: auto; }
+.loading-page, .error-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 2rem; }
+.loading-page .loading-card, .error-page .error { width: min(680px, 92vw); }
+.live-log { width: min(960px, 96vw); background: #0b0712cc; border: 1px solid #ffffff1f; border-radius: 18px; padding: 1rem 1.25rem; box-shadow: 0 30px 90px #0008; }
+.live-log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; font-size: .9rem; color: #fde68a; letter-spacing: .08em; text-transform: uppercase; }
+.live-log-count { color: #a78bfa; font-weight: 700; font-size: .8rem; }
+.live-log-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; line-height: 1.45; color: #d8d4e8; background: #1a1226; border-radius: 12px; padding: .75rem .85rem; margin: 0; max-height: 45vh; min-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 @media (max-width: 700px) { .hero-result { display: block; } .card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }

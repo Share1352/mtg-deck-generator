@@ -16,9 +16,9 @@ function isHardOutage(error) {
   return false;
 }
 
-export async function generateDeck({ seed = Date.now(), onProgress = () => {} } = {}) {
+export async function generateDeck({ seed = Date.now(), onProgress = () => {}, onLog = null } = {}) {
   const rng = createRng(seed);
-  const logger = createLogger();
+  const logger = createLogger({ onLine: typeof onLog === 'function' ? onLog : undefined });
   logger.start(seed);
   onProgress(5);
 
