@@ -37,6 +37,16 @@ export function typeLine(card) { return cardFaces(card).map((f) => f.type_line |
 export function oracleText(card) { return cardFaces(card).map((f) => f.oracle_text || '').join('\n'); }
 export function isLand(card) { return /(^|\s|—)Land(\s|$)/.test(typeLine(card)); }
 export function isCreature(card) { return /(^|\s|—)Creature(\s|$)/.test(typeLine(card)); }
+const LAND_TYPE_RE = /(^|\s|—)Land(\s|$)/;
+export function isPlayableAsLand(card) {
+  if (!card) return false;
+  const faces = cardFaces(card);
+  const front = faces[0] || card;
+  const layout = card.layout;
+  if (layout === 'modal_dfc') return faces.some((f) => LAND_TYPE_RE.test(f?.type_line || ''));
+  if (layout === 'transform' || layout === 'meld' || layout === 'flip') return LAND_TYPE_RE.test(front?.type_line || '');
+  return LAND_TYPE_RE.test(front?.type_line || typeLine(card));
+}
 export function isBasicLand(card) {
   const name = card?.name || '';
   return /^(Snow-Covered )?(Plains|Island|Swamp|Mountain|Forest|Wastes)$/.test(name) || /Basic Land/.test(typeLine(card));
@@ -68,6 +78,8 @@ export function isPlayableMainDeckCard(card, { allowLands = true, allowGoodstuff
   if (card.set === 'mbtest' || card.set === 'cmb1' || card.set === 'cmb2' || card.set === 'ptg') return false;
   if (card.border_color === 'silver') return false;
   if (card.security_stamp === 'acorn') return false;
+  if (card.set_type === 'funny' && card.legalities?.commander !== 'legal') return false;
+  if (card.legalities?.commander === 'not_legal') return false;
   if (card.name?.startsWith('A-')) return false;
   if (!allowLands && isLand(card)) return false;
   if (!allowGoodstuff && GOODSTUFF_NAMES.has(card.name)) return false;

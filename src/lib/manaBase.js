@@ -1,7 +1,7 @@
 import { BASIC_BY_COLOR, SNOW_BASIC_BY_COLOR } from './constants.js';
 import { countManaPips } from './manaPips.js';
 import { calculateLandCount } from './manaValue.js';
-import { colorIdentityWithin, isBasicLand, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
+import { colorIdentityWithin, isBasicLand, isPlayableAsLand, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
 import { randomCard, searchCards, ScryfallError } from './scryfallClient.js';
 
 function isHardOutage(error) {
@@ -89,7 +89,7 @@ function shuffle(cards, rng = Math.random) {
 }
 
 function playableNonbasicLand(card, colors) {
-  return !isBasicLand(card) && isPlayableMainDeckCard(card) && colorIdentityWithin(card, colors) && isUsefulFetchland(card, colors);
+  return !isBasicLand(card) && isPlayableAsLand(card) && isPlayableMainDeckCard(card) && colorIdentityWithin(card, colors) && isUsefulFetchland(card, colors);
 }
 
 export function filterPlayableLandPool(cards, colors, existing = []) {

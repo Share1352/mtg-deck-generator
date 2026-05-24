@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPlayableMainDeckCard, isCreature, isLand, isBasicLand } from '../lib/filters.js';
+import { isPlayableMainDeckCard, isCreature, isLand, isBasicLand, isPlayableAsLand } from '../lib/filters.js';
 const card = (overrides) => ({ name: 'Test', layout: 'normal', type_line: 'Creature — Human', oracle_text: '', lang: 'en', set: 'abc', set_name: 'Normal Set', color_identity: [], ...overrides });
 describe('filters', () => {
   it('rejects known bad categories and cards', () => {
@@ -29,6 +29,9 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Stranger by Set Name', set: 'xxx', set_name: 'Doctor Who Commander' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Snazzy Aether Homunculus', border_color: 'silver' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Acornelia', security_stamp: 'acorn' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Demonic Tourist Laser', set: 'unf', set_type: 'funny', type_line: 'Sorcery', legalities: { commander: 'not_legal' } }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Some Conspiracy', layout: 'normal', type_line: 'Conspiracy', legalities: { commander: 'not_legal' } }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Eternal-legal Unfinity Card', set: 'unf', set_type: 'funny', type_line: 'Creature — Dog', legalities: { commander: 'legal' } }))).toBe(true);
   });
   it('allows specified valid categories', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Frodo, Adventurous Hobbit', set: 'ltr' }))).toBe(true);
@@ -42,5 +45,37 @@ describe('filters', () => {
     expect(isCreature(card({ type_line: 'Artifact Creature — Myr' }))).toBe(true);
     expect(isLand(card({ type_line: 'Land' }))).toBe(true);
     expect(isBasicLand(card({ name: 'Snow-Covered Forest', type_line: 'Basic Snow Land — Forest' }))).toBe(true);
+  });
+  it('isPlayableAsLand requires front face land for transform layout', () => {
+    expect(isPlayableAsLand({
+      name: 'Profane Procession // Tomb of the Dusk Rose',
+      layout: 'transform',
+      card_faces: [
+        { type_line: 'Legendary Enchantment', name: 'Profane Procession' },
+        { type_line: 'Legendary Land', name: 'Tomb of the Dusk Rose' },
+      ],
+    })).toBe(false);
+    expect(isPlayableAsLand({
+      name: 'Westvale Abbey // Ormendahl, Profane Prince',
+      layout: 'transform',
+      card_faces: [
+        { type_line: 'Land', name: 'Westvale Abbey' },
+        { type_line: 'Legendary Creature — Demon', name: 'Ormendahl, Profane Prince' },
+      ],
+    })).toBe(true);
+  });
+  it('isPlayableAsLand accepts modal_dfc if any face is a land', () => {
+    expect(isPlayableAsLand({
+      name: 'Akoum Warrior // Akoum Teeth',
+      layout: 'modal_dfc',
+      card_faces: [
+        { type_line: 'Creature — Minotaur Warrior', name: 'Akoum Warrior' },
+        { type_line: 'Land', name: 'Akoum Teeth' },
+      ],
+    })).toBe(true);
+  });
+  it('isPlayableAsLand accepts normal lands', () => {
+    expect(isPlayableAsLand({ name: 'Plains', layout: 'normal', type_line: 'Basic Land — Plains' })).toBe(true);
+    expect(isPlayableAsLand({ name: 'Lightning Bolt', layout: 'normal', type_line: 'Instant' })).toBe(false);
   });
 });
