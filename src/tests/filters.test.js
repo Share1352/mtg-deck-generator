@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPlayableMainDeckCard, isCreature, isLand, isBasicLand, isPlayableAsLand } from '../lib/filters.js';
+import { isPlayableMainDeckCard, isCreature, isLand, isBasicLand, isPlayableAsLand, producesOnlyOffColorMana, mentionsOnlyOffDeckColors, isOffColorSupportCard } from '../lib/filters.js';
 const card = (overrides) => ({ name: 'Test', layout: 'normal', type_line: 'Creature — Human', oracle_text: '', lang: 'en', set: 'abc', set_name: 'Normal Set', color_identity: [], ...overrides });
 describe('filters', () => {
   it('rejects known bad categories and cards', () => {
@@ -83,5 +83,51 @@ describe('filters', () => {
   it('isPlayableAsLand accepts normal lands', () => {
     expect(isPlayableAsLand({ name: 'Plains', layout: 'normal', type_line: 'Basic Land — Plains' })).toBe(true);
     expect(isPlayableAsLand({ name: 'Lightning Bolt', layout: 'normal', type_line: 'Instant' })).toBe(false);
+  });
+  describe('off-color support filters', () => {
+    it('producesOnlyOffColorMana rejects mana rocks producing only off-deck mana', () => {
+      const talismanOfIndulgence = { produced_mana: ['B', 'R'], color_identity: ['B', 'R'] };
+      expect(producesOnlyOffColorMana(talismanOfIndulgence, ['G', 'W'])).toBe(true);
+      expect(producesOnlyOffColorMana(talismanOfIndulgence, ['B'])).toBe(false);
+      expect(producesOnlyOffColorMana(talismanOfIndulgence, ['R'])).toBe(false);
+    });
+    it('producesOnlyOffColorMana ignores colorless-only producers', () => {
+      const solRing = { produced_mana: ['C'], color_identity: [] };
+      expect(producesOnlyOffColorMana(solRing, ['G', 'W'])).toBe(false);
+    });
+    it('producesOnlyOffColorMana ignores cards that produce any color', () => {
+      const chromaticLantern = { produced_mana: ['W', 'U', 'B', 'R', 'G'], color_identity: [] };
+      expect(producesOnlyOffColorMana(chromaticLantern, ['G', 'W'])).toBe(false);
+    });
+    it('producesOnlyOffColorMana ignores non-producers', () => {
+      const jetMedallion = { color_identity: [], oracle_text: 'Black spells you cast cost {1} less to cast.' };
+      expect(producesOnlyOffColorMana(jetMedallion, ['G', 'W'])).toBe(false);
+    });
+    it('mentionsOnlyOffDeckColors flags colorless cost-reducers for off-deck colors', () => {
+      const jetMedallion = { name: 'Jet Medallion', color_identity: [], oracle_text: 'Black spells you cast cost {1} less to cast.' };
+      expect(mentionsOnlyOffDeckColors(jetMedallion, ['G', 'R', 'W'])).toBe(true);
+      expect(mentionsOnlyOffDeckColors(jetMedallion, ['B'])).toBe(false);
+      expect(mentionsOnlyOffDeckColors(jetMedallion, ['B', 'R'])).toBe(false);
+    });
+    it('mentionsOnlyOffDeckColors ignores colored cards (their cost forces relevance)', () => {
+      const greenRemoval = { color_identity: ['G'], oracle_text: 'Destroy target white creature.' };
+      expect(mentionsOnlyOffDeckColors(greenRemoval, ['G'])).toBe(false);
+    });
+    it('mentionsOnlyOffDeckColors ignores cards with no color mention', () => {
+      const solRing = { color_identity: [], oracle_text: '{T}: Add {C}{C}.' };
+      expect(mentionsOnlyOffDeckColors(solRing, ['R'])).toBe(false);
+    });
+    it('mentionsOnlyOffDeckColors detects mana symbol off-color', () => {
+      const oddArtifact = { color_identity: [], oracle_text: '{2}, {T}: Add {U}{U}.' };
+      expect(mentionsOnlyOffDeckColors(oddArtifact, ['G', 'R'])).toBe(true);
+    });
+    it('isOffColorSupportCard composes both checks', () => {
+      const jetMedallion = { color_identity: [], oracle_text: 'Black spells you cast cost {1} less to cast.' };
+      const talisman = { produced_mana: ['B', 'R'], color_identity: ['B', 'R'], oracle_text: '{T}: Add {B} or {R}.' };
+      expect(isOffColorSupportCard(jetMedallion, ['G', 'W'])).toBe(true);
+      expect(isOffColorSupportCard(talisman, ['G', 'W'])).toBe(true);
+      expect(isOffColorSupportCard(jetMedallion, ['B'])).toBe(false);
+      expect(isOffColorSupportCard({ color_identity: [] }, [])).toBe(false);
+    });
   });
 });

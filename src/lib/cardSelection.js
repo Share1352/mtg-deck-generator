@@ -1,7 +1,7 @@
 import { searchCards, ScryfallError } from './scryfallClient.js';
 import { buildThemeQuery, exactOracleQuery, getHostQuery, getThemeAdjacentQueries } from './themeQueries.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
-import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
+import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, isOffColorSupportCard, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
 import { shuffle } from './random.js';
 import { getThemeFamilyQueries, getFamilyLabels } from './themeFamilies.js';
@@ -133,6 +133,7 @@ function addIfValid(selected, card, colors, source, logger, sources) {
   if (!isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })) return false;
   if (hasUnsupportedSelfNameSynergy(card)) { logger?.line(`Skipped ${card.name}: direct named-card synergy needs extra copies, but this deck is singleton.`); return false; }
   if (!colorIdentityWithin(card, colors)) return false;
+  if (isOffColorSupportCard(card, colors)) { logger?.line(`Skipped ${card.name}: colorless support card payoffs/mana aimed at off-deck colors (deck=${colors.join('')}).`); return false; }
   if (selected.some((c) => sameCard(c, card))) return false;
   selected.push(card);
   const normalizedSource = normalizeSourceModel(source);
@@ -151,6 +152,7 @@ function addReplacement(selected, card, colors, source, logger, sources, protect
   if (!isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })) return false;
   if (hasUnsupportedSelfNameSynergy(card)) return false;
   if (!colorIdentityWithin(card, colors)) return false;
+  if (isOffColorSupportCard(card, colors)) return false;
   if (selected.some((c) => sameCard(c, card))) return false;
   const index = selected.length < 23 ? selected.length : replacementIndex(selected, protectedCard);
   if (index < 0) return false;
@@ -161,6 +163,36 @@ function addReplacement(selected, card, colors, source, logger, sources, protect
   if (removed) sources.delete(removed.name);
   logger?.line(`${normalizedSource.section} card ${removed ? 'replaced' : 'added'}: ${card.name}${removed ? ` over ${removed.name}` : ''} / source: ${normalizedSource.source} / stage: ${normalizedSource.stage} / kind: ${normalizedSource.kind} / reason: ${normalizedSource.reason || 'n/a'}`);
   return true;
+}
+
+function buildSynergyKeywordQuery(selected, colors) {
+  const colorLock = `id<=${colors.join('')} game:paper lang:en`;
+  const freq = new Map();
+  for (const card of selected) {
+    const kws = Array.isArray(card?.keywords) ? card.keywords : [];
+    for (const kw of kws) {
+      const k = String(kw).trim();
+      if (!k) continue;
+      freq.set(k, (freq.get(k) || 0) + 1);
+    }
+  }
+  if (!freq.size) return null;
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k);
+  const clauses = top.map((kw) => `keyword:"${kw.replace(/"/g, '')}"`);
+  return { query: `(${clauses.join(' OR ')}) ${colorLock}`, keywords: top };
+}
+
+async function fetchSynergyKeywordCards(selected, colors, suffix, logger) {
+  const built = buildSynergyKeywordQuery(selected, colors);
+  if (!built) return { keywords: [], cards: [] };
+  try {
+    const cards = await searchCards(`${built.query} ${suffix}`, { order: 'edhrec', limit: 160, logger });
+    return { keywords: built.keywords, cards };
+  } catch (e) {
+    if (isHardOutage(e)) throw e;
+    logger?.error(`synergy-keyword fallback ${suffix}`, e);
+    return { keywords: built.keywords, cards: [] };
+  }
 }
 
 async function repairDirectSynergies(selected, pool, colors, logger, sources) {
@@ -363,6 +395,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     }
   }
   if (coreCreatureCount() < 5) {
+    const { keywords, cards: synergyCreatures } = await fetchSynergyKeywordCards(selected, colors, 'type:creature -type:land', logger);
+    if (synergyCreatures.length) {
+      logger?.line(`Synergy-keyword creature fallback using keywords [${keywords.join(', ')}]: ${synergyCreatures.length} candidates.`);
+      addCoreUntil(synergyCreatures, `synergy-keyword creature fallback (${keywords.join('|')})`, 'theme-adjacent', true, () => coreCreatureCount() >= 5, false);
+    }
+  }
+  if (coreCreatureCount() < 5) {
     try {
       const creatureSupport = await searchCards(`${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
       addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', 'generic-color-filler', true, () => coreCreatureCount() >= 5);
@@ -401,6 +440,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
         const familySupport = await searchCards(`${query} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
         addCoreUntil(familySupport, `theme-family ${family} ${role} support: ${query}`, 'theme-adjacent', false, () => coreNonCreatureCount() >= 7, false);
       } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-family core non-creature ${family}/${role}`, e); }
+    }
+  }
+  if (coreNonCreatureCount() < 7) {
+    const { keywords, cards: synergySupport } = await fetchSynergyKeywordCards(selected, colors, '-type:creature -type:land', logger);
+    if (synergySupport.length) {
+      logger?.line(`Synergy-keyword non-creature fallback using keywords [${keywords.join(', ')}]: ${synergySupport.length} candidates.`);
+      addCoreUntil(synergySupport, `synergy-keyword non-creature fallback (${keywords.join('|')})`, 'theme-adjacent', false, () => coreNonCreatureCount() >= 7, false);
     }
   }
   if (coreNonCreatureCount() < 7) {
@@ -503,6 +549,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       const broaderTheme = await searchCards(`${themeOracle} ${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger });
       addMany(broaderTheme, 'Random all-time', 'Scryfall broad oracle match', 'theme-adjacent', null, 23, false);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle broadened fallback', e); }
+  }
+  if (selected.length < 23) {
+    const { keywords, cards: synergyMixed } = await fetchSynergyKeywordCards(selected, colors, '-type:land', logger);
+    if (synergyMixed.length) {
+      logger?.line(`Synergy-keyword random-slot fallback using keywords [${keywords.join(', ')}]: ${synergyMixed.length} candidates.`);
+      addMany(synergyMixed, 'Random all-time', `synergy-keyword random fallback (${keywords.join('|')})`, 'theme-adjacent', null, 23, false);
+    }
   }
   if (selected.length < 23) {
     logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);

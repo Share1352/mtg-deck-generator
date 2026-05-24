@@ -113,6 +113,33 @@ export function colorIdentityWithin(card, colors) {
   if (!id.length) return true;
   return id.every((c) => colors.includes(c));
 }
+const COLOR_LETTERS = ['W','U','B','R','G'];
+const COLOR_WORD_RE = { W: /\bwhite\b/i, U: /\bblue\b/i, B: /\bblack\b/i, R: /\bred\b/i, G: /\bgreen\b/i };
+export function producesOnlyOffColorMana(card, deckColors) {
+  const produced = Array.isArray(card?.produced_mana) ? card.produced_mana : [];
+  const coloredProduced = produced.filter((c) => COLOR_LETTERS.includes(c));
+  if (!coloredProduced.length) return false;
+  return !coloredProduced.some((c) => deckColors.includes(c));
+}
+export function mentionsOnlyOffDeckColors(card, deckColors) {
+  const ci = card?.color_identity || [];
+  if (ci.length) return false;
+  const text = oracleText(card);
+  if (!text) return false;
+  const mentioned = new Set();
+  for (const c of COLOR_LETTERS) if (COLOR_WORD_RE[c].test(text)) mentioned.add(c);
+  const symbolMatches = text.match(/\{([WUBRG])\}/g) || [];
+  for (const m of symbolMatches) mentioned.add(m.slice(1, -1));
+  if (!mentioned.size) return false;
+  for (const c of mentioned) if (deckColors.includes(c)) return false;
+  return true;
+}
+export function isOffColorSupportCard(card, deckColors) {
+  if (!Array.isArray(deckColors) || !deckColors.length) return false;
+  if (producesOnlyOffColorMana(card, deckColors)) return true;
+  if (mentionsOnlyOffDeckColors(card, deckColors)) return true;
+  return false;
+}
 export function uniqueByOracle(cards) {
   const out = [];
   for (const card of cards) if (!out.some((x) => sameCard(x, card))) out.push(card);
