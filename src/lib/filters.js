@@ -6,8 +6,31 @@ const commanderPhrases = [/\bcommander(?:s|'s)?\b/i, /command zone/i, /lieutenan
 const bannedNormalizedNames = new Set([...BANNED_CARD_NAMES].map((n) => String(n).toLowerCase().replace(/\s+/g, ' ').trim()));
 function normalizeName(name) { return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 const sidePhrases = [/open an attraction/i, /visit.*attraction/i, /put a sticker/i, /ticket counter/i, /assemble a contraption/i, /venture into .*dungeon card/i];
-const bannedSets = new Set(['bot','40k','who','pip','tla','tle','ttla','spm','spe']);
-const bannedNameFamilies = [/Transformers/i, /Warhammer 40,?000/i, /Doctor Who/i, /Fallout/i, /Spider-Man/i, /Marvel/i, /Avatar: The Last Airbender/i];
+const bannedSets = new Set([
+  '40k','t40k','pw23',
+  'who','twho',
+  'pip','tpip',
+  'tla','tle','ttla','ptla',
+  'spm','spe','tspm','pspm',
+  'bot','tbot','ptbot',
+  'acr','tacr','pacr',
+  'fin','fic','tfin','tfic','pfin','pfic',
+  'rex',
+]);
+const bannedNameFamilies = [
+  /Transformers/i,
+  /Warhammer 40,?000/i,
+  /Doctor Who/i,
+  /\bFallout\b/i,
+  /Spider-Man/i,
+  /\bMarvel\b/i,
+  /Avatar: The Last Airbender/i,
+  /Assassin'?s Creed/i,
+  /Final Fantasy/i,
+  /Jurassic (World|Park)/i,
+];
+const lotrAllowedSets = new Set(['ltr','ltc','tltr','tltc','pltr','pltc']);
+const lotrNameFamilies = [/Lord of the Rings/i, /Middle-earth/i, /Tales of Middle/i];
 
 export function cardFaces(card) { return card?.card_faces?.length ? card.card_faces : [card]; }
 export function typeLine(card) { return cardFaces(card).map((f) => f.type_line || '').join(' // '); }
@@ -25,8 +48,10 @@ export function sameCard(a, b) {
 }
 export function isBannedCrossover(card) {
   const set = String(card?.set || '').toLowerCase();
-  if (bannedSets.has(set)) return true;
   const haystack = `${card?.set_name || ''} ${card?.name || ''}`;
+  if (lotrAllowedSets.has(set)) return false;
+  if (lotrNameFamilies.some((re) => re.test(haystack))) return false;
+  if (bannedSets.has(set)) return true;
   return bannedNameFamilies.some((re) => re.test(haystack));
 }
 export function isCommanderOnly(card) {

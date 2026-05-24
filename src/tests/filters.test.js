@@ -22,12 +22,18 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Marneus Calgar', set: '40k' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Optimus Prime', set: 'bot' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Spider-Man', set: 'spm' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Bayek of Siwa', set: 'acr' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Cloud, Ex-SOLDIER', set: 'fin' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Tifa Lockhart', set_name: 'Final Fantasy Commander', set: 'fic' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Velociraptor Pack', set: 'rex', set_name: 'Jurassic World Collection' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Stranger by Set Name', set: 'xxx', set_name: 'Doctor Who Commander' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Snazzy Aether Homunculus', border_color: 'silver' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Acornelia', security_stamp: 'acorn' }))).toBe(false);
   });
   it('allows specified valid categories', () => {
-    expect(isPlayableMainDeckCard(card({ name: 'Frodo', set: 'ltr' }))).toBe(true);
-    expect(isPlayableMainDeckCard(card({ name: 'Cloud', set: 'fin' }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Frodo, Adventurous Hobbit', set: 'ltr' }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Aragorn, the Uniter', set: 'ltc', set_name: 'Tales of Middle-earth Commander' }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Gollum, Patient Plotter', set: 'tltr', set_name: 'Tales of Middle-earth Tokens' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Minsc', set: 'afr' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Nearby Planet', type_line: 'Legendary Planeswalker — Test' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Dungeon Delver', oracle_text: 'Venture into the dungeon.' }))).toBe(true);
