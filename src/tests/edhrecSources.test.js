@@ -8,9 +8,6 @@ function jsonResponse(body) {
 function statusResponse(status) {
   return { ok: false, status, json: async () => ({}), text: async () => '' };
 }
-function isProxyUrl(url) {
-  return /corsproxy\.io|allorigins\.win|codetabs\.com/.test(url);
-}
 function withFetch(handler, fn) {
   const original = globalThis.fetch;
   const calls = [];
@@ -30,17 +27,14 @@ async function expectRejection(promise, predicate) {
 }
 
 describe('EDHREC source orchestrator', () => {
-  it('exposes all 6 source strategies in priority order', () => {
+  it('exposes the two browser-reachable source strategies in priority order', () => {
     resetCaches();
-    // cors-proxy is before edhrec-next-data and edhrec-s3 because _next/data buildId
-    // discovery is fragile and S3 endpoints are speculative; CORS proxies are more reliable.
+    // Dead sources (direct-edhrec-json, cors-proxy, edhrec-next-data, edhrec-s3) removed:
+    // browser CORS / Cloudflare 403 makes them unreachable. Build-time prefetch handles
+    // the direct EDHREC fetch from Node and writes into the bundled-static path.
     expect(SOURCES.map((s) => s.id)).toEqual([
       'bundled-static',
       'gh-mirror-raw',
-      'direct-edhrec-json',
-      'cors-proxy',
-      'edhrec-next-data',
-      'edhrec-s3',
     ]);
   });
 
@@ -78,53 +72,18 @@ describe('EDHREC source orchestrator', () => {
     });
   });
 
-  // ---- C. both mirror sources missing → warning logged before direct/proxy sources ----
+  // ---- C. both mirror sources missing → warning logged and AllSourcesFailedError ----
 
-  it('warns when both mirror sources are missing before falling through to direct sources', async () => {
+  it('warns when both mirror sources are missing and raises AllSourcesFailedError', async () => {
     resetCaches();
     const logs = [];
     const logger = { line: (msg) => logs.push(msg) };
-    await withFetch((url) => {
-      if (url === 'https://json.edhrec.com/pages/themes.json') {
-        return jsonResponse({ container: { json_dict: { card_lists: [] } } });
-      }
-      return statusResponse(404);
-    }, async () => {
-      const { sourceId } = await tryAllSources('/pages/themes.json', { logger });
-      expect(sourceId).toBe('direct-edhrec-json');
-      // Warning must appear before the direct-source success log
-      const warnIdx = logs.findIndex((l) => /refresh-edhrec-mirror|prefetch-edhrec/.test(l));
-      const successIdx = logs.findIndex((l) => l.includes('direct-edhrec-json') && l.includes('success'));
-      expect(warnIdx).toBeGreaterThanOrEqual(0);
-      expect(warnIdx).toBeLessThan(successIdx);
-    });
-  });
-
-  it('cascades from bundled-static to direct json.edhrec.com on 404', async () => {
-    resetCaches();
-    await withFetch((url) => {
-      if (url === 'https://json.edhrec.com/pages/themes.json') {
-        return jsonResponse({ container: { json_dict: { card_lists: [] } } });
-      }
-      return statusResponse(404);
-    }, async (calls) => {
-      const { sourceId } = await tryAllSources('/pages/themes.json');
-      expect(sourceId).toBe('direct-edhrec-json');
-      expect(calls.some((u) => u.includes('/data/edhrec/pages/themes.json'))).toBe(true);
-      expect(calls.some((u) => u === 'https://json.edhrec.com/pages/themes.json')).toBe(true);
-    });
-  });
-
-  it('cascades past 403 from direct to cors-proxy and succeeds', async () => {
-    resetCaches();
-    await withFetch((url) => {
-      if (isProxyUrl(url)) {
-        return jsonResponse({ container: { json_dict: { card_lists: [] } } });
-      }
-      return statusResponse(403);
-    }, async () => {
-      const { sourceId } = await tryAllSources('/pages/themes.json');
-      expect(sourceId).toBe('cors-proxy');
+    await withFetch(() => statusResponse(404), async () => {
+      await expectRejection(
+        tryAllSources('/pages/themes.json', { logger }),
+        (e) => e.name === 'AllSourcesFailedError',
+      );
+      expect(logs.some((l) => /refresh-edhrec-mirror|prefetch-edhrec/.test(l))).toBe(true);
     });
   });
 
@@ -197,6 +156,23 @@ describe('edhrecClient delegates to the source orchestrator', () => {
     }, async () => {
       const cards = await getSynergyCardsForTag('Equipment');
       expect(cards).toContain('Sram, Senior Edificer');
+    });
+  });
+
+  it('caches EDHREC failures so repeat fetches do not re-hit network', async () => {
+    resetCaches();
+    let networkCalls = 0;
+    await withFetch(() => { networkCalls += 1; return statusResponse(403); }, async () => {
+      await expectRejection(
+        getSynergyCardsForTag('Equipment'),
+        (e) => e.name === 'EdhrecError' && e.status === 403,
+      );
+      const callsAfterFirst = networkCalls;
+      await expectRejection(
+        getSynergyCardsForTag('Equipment'),
+        (e) => e.name === 'EdhrecError' && e.status === 403,
+      );
+      expect(networkCalls).toBe(callsAfterFirst);
     });
   });
 });

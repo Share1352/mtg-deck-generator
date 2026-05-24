@@ -40,10 +40,18 @@ export function slugifyTheme(name) {
 }
 
 async function edhrecFetch(path, { logger } = {}) {
-  if (cache.has(path)) { logger?.line(`EDHREC cache hit ${path}`); return cache.get(path); }
+  const cached = cache.get(path);
+  if (cached) {
+    if (cached.error) {
+      logger?.line(`EDHREC cache hit ${path} (prior failure: ${cached.error.message})`);
+      throw cached.error;
+    }
+    logger?.line(`EDHREC cache hit ${path}`);
+    return cached.data;
+  }
   try {
     const { data, sourceId } = await tryAllSources(path, { logger });
-    cache.set(path, data);
+    cache.set(path, { data });
     if (logger) logger.lastEdhrecSourceId = sourceId;
     return data;
   } catch (error) {
@@ -54,7 +62,9 @@ async function edhrecFetch(path, { logger } = {}) {
         : status === 403
           ? `EDHREC unavailable (403) for ${path} after trying all sources`
           : `EDHREC fetch failed for ${path}: ${error.message}`;
-      throw new EdhrecError(msg, status, `${EDHREC_API}${path}`);
+      const edhrecErr = new EdhrecError(msg, status, `${EDHREC_API}${path}`);
+      cache.set(path, { error: edhrecErr });
+      throw edhrecErr;
     }
     throw error;
   }

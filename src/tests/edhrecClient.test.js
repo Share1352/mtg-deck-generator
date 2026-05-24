@@ -3,9 +3,12 @@ import { canonicalSynergyTag, slugifyTheme, getSynergyCardsForTag, getAllEdhrecT
 
 function withMockFetch(routes, fn) {
   const original = globalThis.fetch;
+  // Routes are keyed by canonical EDHREC path (e.g. "/pages/themes.json"). With dead
+  // sources removed, the orchestrator only hits bundled-static and gh-mirror-raw
+  // URLs that append the same suffix, so match by endsWith.
   globalThis.fetch = async (url) => {
-    const path = new URL(url).pathname;
-    const match = routes[path];
+    const matchedKey = Object.keys(routes).find((p) => url.endsWith(p));
+    const match = matchedKey ? routes[matchedKey] : null;
     if (!match) return { ok: false, status: 404, json: async () => ({}) };
     if (typeof match === 'function') return match();
     return { ok: true, status: 200, json: async () => match };
