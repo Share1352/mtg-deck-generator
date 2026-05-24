@@ -88,7 +88,7 @@ async function runTypalSelectionPipeline({
   );
   await runStage(
     'E (theme-adjacent non-tribal support)',
-    async () => searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }),
+    async () => searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} -type:land`, { order: 'edhrec', limit: 80, logger }),
     { kind: 'theme-adjacent', promotedDirect: false },
   );
   await runStage(

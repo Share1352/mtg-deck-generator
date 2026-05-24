@@ -27,11 +27,17 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Tifa Lockhart', set_name: 'Final Fantasy Commander', set: 'fic' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Velociraptor Pack', set: 'rex', set_name: 'Jurassic World Collection' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Stranger by Set Name', set: 'xxx', set_name: 'Doctor Who Commander' }))).toBe(false);
-    expect(isPlayableMainDeckCard(card({ name: 'Snazzy Aether Homunculus', border_color: 'silver' }))).toBe(false);
-    expect(isPlayableMainDeckCard(card({ name: 'Acornelia', security_stamp: 'acorn' }))).toBe(false);
-    expect(isPlayableMainDeckCard(card({ name: 'Demonic Tourist Laser', set: 'unf', set_type: 'funny', type_line: 'Sorcery', legalities: { commander: 'not_legal' } }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Some Conspiracy', layout: 'normal', type_line: 'Conspiracy', legalities: { commander: 'not_legal' } }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Eternal-legal Unfinity Card', set: 'unf', set_type: 'funny', type_line: 'Creature — Dog', legalities: { commander: 'legal' } }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Steam-Powered', set: 'ust', set_type: 'funny', border_color: 'silver', type_line: 'Artifact — Contraption' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: '_____ Goblin', set: 'unf', security_stamp: 'acorn', type_line: 'Creature — Goblin', oracle_text: 'Put a name sticker on this creature.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Park Re-Entry', set: 'unf', security_stamp: 'acorn', oracle_text: 'Open an Attraction.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Augmented Buster', set: 'ust', layout: 'augment', type_line: 'Creature — Construct' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Hot Sauce', set: 'ust', security_stamp: 'acorn', type_line: 'Creature — Construct Host', oracle_text: 'When this enters, combine it.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Squirrel Farm', set: 'unh', border_color: 'silver', type_line: 'Enchantment', oracle_text: 'Whenever you cast a spell, create a Squirrel token.' }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Mother Kangaroo', type_line: 'Creature — Kangaroo', keywords: ['Banding'], oracle_text: 'Banding' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Old Bands-With-Other', type_line: 'Creature — Soldier', oracle_text: 'Bands with other Legends.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Channel', oracle_text: 'Pay X life. Add X.', legalities: { commander: 'banned' } }))).toBe(false);
   });
   it('allows specified valid categories', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Frodo, Adventurous Hobbit', set: 'ltr' }))).toBe(true);
