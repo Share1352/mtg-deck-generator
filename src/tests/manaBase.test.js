@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allocateBasics, buildManaBase, isUsefulFetchland, selectNonbasicLandsFromPools, splitLandSlots } from '../lib/manaBase.js';
 import { _resetScryfallCache } from '../lib/scryfallClient.js';
-import { _resetEdhrecCache } from '../lib/edhrecClient.js';
 
 function landCard(name, color_identity = [], oracle_text = 'Add mana.') {
   return {
@@ -74,7 +73,6 @@ describe('mana base helpers', () => {
 
   it('builds a mana base entirely from online Scryfall responses', async () => {
     _resetScryfallCache();
-    _resetEdhrecCache();
     const original = globalThis.fetch;
     const randomLands = ['Tranquil Cove', 'Meandering River', 'Coastal Tower', 'Azorius Chancery', 'Glacial Fortress', 'Skybridge Towers', 'Port Town', 'Hallowed Fountain', 'Mystic Gate', 'Adarkar Wastes', 'Seachrome Coast', 'Prairie Stream'].map((n) => landCard(n, ['W', 'U']));
     const basicByName = {
@@ -129,7 +127,6 @@ describe('mana base helpers', () => {
 
   it('drops commander-only lands that slip into the random fallback pool', async () => {
     _resetScryfallCache();
-    _resetEdhrecCache();
     const original = globalThis.fetch;
     const pool = [
       landCard('Command Beacon', [], '{T}: Add {C}. {T}, Sacrifice this land: Put your commander into your hand from the command zone.'),
@@ -163,7 +160,6 @@ describe('mana base helpers', () => {
 
   it('builds the theme land query with otag, oracle word, type, and aliases', async () => {
     _resetScryfallCache();
-    _resetEdhrecCache();
     const original = globalThis.fetch;
     const searchQueries = [];
     globalThis.fetch = async (url) => {
@@ -194,7 +190,6 @@ describe('mana base helpers', () => {
 
   it('produces varied random non-basic land selections across different rng seeds', async () => {
     _resetScryfallCache();
-    _resetEdhrecCache();
     const original = globalThis.fetch;
     const pool = Array.from({ length: 40 }, (_, i) => landCard(`Pool Land ${i}`, ['G']));
     const basicByName = { Forest: basicCard('Forest'), Plains: basicCard('Plains'), Island: basicCard('Island'), Swamp: basicCard('Swamp'), Mountain: basicCard('Mountain') };
@@ -220,7 +215,6 @@ describe('mana base helpers', () => {
 
   it('rejects banned and commander-only lands inside the random fallback loop', async () => {
     _resetScryfallCache();
-    _resetEdhrecCache();
     const original = globalThis.fetch;
     const pool = [
       landCard('Command Tower', [], 'Add one mana of any color in your commander\'s identity.'),

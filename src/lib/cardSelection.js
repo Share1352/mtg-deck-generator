@@ -1,5 +1,4 @@
-import { canonicalSynergyTag, getSynergyCardsForTag, EdhrecError } from './edhrecClient.js';
-import { namedCard, searchCards, ScryfallError } from './scryfallClient.js';
+import { searchCards, ScryfallError } from './scryfallClient.js';
 import { buildThemeQuery, exactOracleQuery, getHostQuery, getThemeAdjacentQueries } from './themeQueries.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
 import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
@@ -20,6 +19,8 @@ const GENERIC_TYPAL_SUPPORT_ALLOWLIST = new Set([
   'maskwood nexus',
 ]);
 
+const TYPAL_SUPPORT_ORACLE_QUERY = '(oracle:"of the chosen type" OR oracle:"choose a creature type" OR oracle:"of that creature type" OR oracle:"creature type" OR oracle:"creatures you control of" OR oracle:"all creatures of the chosen")';
+
 export function isGenericTypalSupport(card) {
   const normalized = String(card?.name || '').trim().toLowerCase();
   return GENERIC_TYPAL_SUPPORT_ALLOWLIST.has(normalized);
@@ -37,9 +38,7 @@ async function runTypalSelectionPipeline({
   name,
   colors,
   selected,
-  legalEdhrec,
   randomPool,
-  synergyNames,
   logger,
   addMany,
 }) {
@@ -50,24 +49,52 @@ async function runTypalSelectionPipeline({
   const creatureTypeQuery = `type:"${typalName}" ${colorLock} -type:land`;
   const remainingCapacity = () => Math.max(0, 23 - selected.length);
   const stageLog = (stage, before) => logger?.line(`Typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
-  const runStage = async (stage, loader) => {
+  const runStage = async (stage, loader, { kind = 'direct-theme', creatureOnly = null, promotedDirect = true } = {}) => {
     if (remainingCapacity() <= 0) return;
     const before = selected.length;
     let candidates = [];
     try {
       candidates = await loader();
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`typal pipeline stage ${stage}`, e); }
-    if (Array.isArray(candidates) && candidates.length) addMany(candidates, 'Random all-time', `typal-stage-${stage}`, stage.startsWith('D') ? 'typal-support' : stage.startsWith('E') ? 'theme-adjacent' : stage.startsWith('F') ? 'generic-color-filler' : 'direct-theme', null, 23, !stage.startsWith('F'));
+    if (Array.isArray(candidates) && candidates.length) addMany(candidates, 'Random all-time', `typal-stage-${stage}`, kind, creatureOnly, 23, promotedDirect);
     if (selected.length === before) logger?.line(`Typal stage ${stage} yielded zero viable candidates.`);
     stageLog(stage, before);
   };
 
-  await runStage('A (direct tribe-evidence cards)', async () => synergyNames.length ? legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))) : []);
-  await runStage('B (strong tribe-synergy enablers)', async () => searchCards(creatureTypeQuery, { order: 'edhrec', limit: 120, logger }));
-  await runStage('C (on-tribe role fillers)', async () => searchCards(`${typalMentionQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }));
-  await runStage('D (generic typal support)', async () => randomPool.filter((card) => isGenericTypalSupport(card)));
-  await runStage('E (theme-adjacent non-tribal support)', async () => searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }));
-  await runStage('F (generic filler)', async () => searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }));
+  await runStage(
+    'A (strong tribe-synergy enablers)',
+    async () => searchCards(creatureTypeQuery, { order: 'edhrec', limit: 120, logger }),
+    { kind: 'direct-theme', promotedDirect: true },
+  );
+  await runStage(
+    'B (on-tribe role fillers)',
+    async () => searchCards(`${typalMentionQuery} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
+    { kind: 'direct-theme', promotedDirect: true },
+  );
+  await runStage(
+    'C (Changeling tribal fill)',
+    async () => searchCards(`type:changeling type:creature ${colorLock}`, { order: 'edhrec', limit: 80, logger }),
+    { kind: 'direct-theme', creatureOnly: true, promotedDirect: true },
+  );
+  await runStage(
+    'D (generic typal support)',
+    async () => {
+      const fromPool = randomPool.filter((card) => isGenericTypalSupport(card));
+      if (fromPool.length) return fromPool;
+      return searchCards(`${TYPAL_SUPPORT_ORACLE_QUERY} ${colorLock} -type:land`, { order: 'edhrec', limit: 80, logger });
+    },
+    { kind: 'typal-support', creatureOnly: false, promotedDirect: true },
+  );
+  await runStage(
+    'E (theme-adjacent non-tribal support)',
+    async () => searchCards(`oracle:/\\bchangeling\\b/i ${colorLock} legal:commander -is:funny -type:land`, { order: 'edhrec', limit: 80, logger }),
+    { kind: 'theme-adjacent', promotedDirect: false },
+  );
+  await runStage(
+    'F (generic filler)',
+    async () => searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 250, logger }),
+    { kind: 'generic-color-filler', promotedDirect: false },
+  );
 }
 
 export async function __runTypalSelectionPipelineForTest(args) {
@@ -76,14 +103,13 @@ export async function __runTypalSelectionPipelineForTest(args) {
 
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
-  if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   return false;
 }
 
 function normalizeSourceModel(source = {}) {
   const stage = source.stage || source.section || 'unknown-stage';
   const kind = source.kind || (
-    source.category === 'edhrec-synergy' || source.promotedDirect === true || source.category === 'direct-theme'
+    source.promotedDirect === true || source.category === 'direct-theme'
       ? 'direct_evidence'
       : source.category === 'typal-support'
         ? 'typal_support'
@@ -244,20 +270,6 @@ export function __rebalanceToMinimumDirectEvidenceForTest(args) {
   return rebalanceToMinimumDirectEvidence(args);
 }
 
-async function fetchNames(names, logger) {
-  const cards = [];
-  for (const name of names) {
-    try {
-      const card = await namedCard(name, { logger });
-      if (isLand(card)) continue;
-      cards.push(card);
-    } catch (e) {
-      if (isHardOutage(e)) throw e;
-      logger?.error(`EDHREC named card ${name}`, e);
-    }
-  }
-  return cards;
-}
 async function themePoolCards(theme, logger) {
   const queries = [buildThemeQuery(theme), getHostQuery(theme.name || theme)].filter(Boolean);
   const cards = [];
@@ -271,44 +283,31 @@ async function themePoolCards(theme, logger) {
   }
   return uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
 }
+
 export async function selectCardsForTheme(theme, { logger, rng = Math.random } = {}) {
   const MIN_DIRECT_THEME_CARDS = 10;
   const name = theme.name || theme;
-  const synergyTag = canonicalSynergyTag(name);
-  let synergyNames = [];
-  let edhrecAvailable = true;
-  try {
-    synergyNames = await getSynergyCardsForTag(name, { logger });
-  } catch (error) {
-    if (isHardOutage(error)) throw error;
-    if (error instanceof EdhrecError && error.status === 403) {
-      edhrecAvailable = false;
-      logger?.line(`WARNING: NOT REAL EDHREC SYNERGY for ${name}. All EDHREC sources (bundled-static, gh-mirror-raw) unavailable. Falling back to Scryfall otag/oracle search only — synergy quality will be lower.`);
-    } else {
-      logger?.line(`WARNING: NOT REAL EDHREC SYNERGY for ${name}. EDHREC lookup failed: ${error.message}. Falling back to Scryfall otag/oracle search only — synergy quality will be lower.`);
-    }
-  }
-  logger?.line(`EDHREC high-synergy data for ${name}${synergyTag && synergyTag !== name ? ` via ${synergyTag}` : ''}: ${edhrecAvailable ? (synergyNames.length ? `${synergyNames.length} cards` : 'none') : 'unavailable'}`);
-  if (edhrecAvailable && !synergyNames.length) logger?.line(`No EDHREC high-synergy data found for ${name}. Using Scryfall otag/mechanical search instead.`);
-  const edhrecCards = await fetchNames(synergyNames, logger);
   const scryfallThemePool = await themePoolCards(theme, logger);
   const directThemeCards = uniqueByOracle(scryfallThemePool);
   if (directThemeCards.length < MIN_DIRECT_THEME_CARDS) throw new Error(`Theme ${name} rejected: only ${directThemeCards.length} direct theme cards found; minimum is ${MIN_DIRECT_THEME_CARDS}.`);
   logger?.line(`Theme ${name} accepted: ${directThemeCards.length} direct theme cards found; minimum is ${MIN_DIRECT_THEME_CARDS}.`);
-  const pool = uniqueByOracle([...edhrecCards, ...scryfallThemePool].filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
+  const pool = uniqueByOracle(scryfallThemePool.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
   logger?.line(`Theme pool valid cards: ${pool.length}`);
   let colorResult = chooseDeckColors(pool, { rng, logger });
   let expansion = maybeExpandColors({ chosenColors: colorResult.colors, allCards: pool, needed: 23, logger });
   const colors = expansion.colors;
   const selected = [];
   const sources = new Map();
-  const ordered = (cards, source) => source.startsWith('EDHREC') ? cards : shuffle(cards, rng);
+  const isTypal = theme?.category === 'typal';
+  const ordered = (cards, source) => shuffle(cards, rng);
   const reasonForSource = (source, targetCreature) => {
     if (targetCreature === true) return 'creature/payoff target';
     if (targetCreature === false) return 'non-creature support target';
-    if (source === 'EDHREC high synergy cache') return 'edhrec high synergy';
     if (source.includes('direct theme match')) return 'direct theme match';
     if (source.includes('broad oracle match')) return 'broad oracle match';
+    if (source.includes('Changeling')) return 'changeling tribal fill';
+    if (source.includes('typal support')) return 'generic typal support';
+    if (source.includes('theme-adjacent') || source.includes('mechanic')) return 'theme-adjacent';
     if (source.includes('/cards/random')) return 'true random card';
     return 'generic color-compatible fallback';
   };
@@ -334,11 +333,11 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   };
   const coreCreatureCount = () => selected.slice(0, 12).filter(isCreature).length;
   const coreNonCreatureCount = () => selected.slice(0, 12).filter((card) => !isCreature(card)).length;
-  const legalEdhrec = edhrecCards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false }));
-  const coreFallbackSource = synergyNames.length ? 'Scryfall broad oracle match' : 'Scryfall broad oracle match';
+  const coreFallbackSource = 'Scryfall broad oracle match';
   const themeOracle = exactOracleQuery(name);
   const colorLock = `id<=${colors.join('')} game:paper lang:en`;
-  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', 'edhrec-synergy', true, () => coreCreatureCount() >= 5);
+
+  // ---- Core creature slots (target 5) ----
   addCoreUntil(pool, coreFallbackSource, 'direct-theme', true, () => coreCreatureCount() >= 5, true);
   if (coreCreatureCount() < 5) {
     try {
@@ -346,19 +345,42 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       addCoreUntil(themedCreatures, 'theme-oracle creature/payoff fallback', 'direct-theme', true, () => coreCreatureCount() >= 5, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle core creature fallback', e); }
   }
+  if (isTypal && coreCreatureCount() < 5) {
+    try {
+      const changelings = await searchCards(`type:changeling type:creature ${colorLock}`, { order: 'edhrec', limit: 60, logger });
+      addCoreUntil(changelings, 'Changeling tribal fill', 'direct-theme', true, () => coreCreatureCount() >= 5, true);
+    } catch (e) { if (isHardOutage(e)) throw e; logger?.error('Changeling core creature fill', e); }
+  }
   if (coreCreatureCount() < 5) {
     try {
       const creatureSupport = await searchCards(`${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
       addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', 'generic-color-filler', true, () => coreCreatureCount() >= 5);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('core creature fallback', e); }
   }
-  addCoreUntil(legalEdhrec, 'EDHREC high synergy cache', 'edhrec-synergy', false, () => coreNonCreatureCount() >= 7);
+
+  // ---- Core non-creature slots (target 7) ----
   addCoreUntil(pool, coreFallbackSource, 'direct-theme', false, () => coreNonCreatureCount() >= 7, true);
   if (coreNonCreatureCount() < 7) {
     try {
       const themedSupport = await searchCards(`${themeOracle} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
       addCoreUntil(themedSupport, 'theme-oracle non-creature support fallback', 'direct-theme', false, () => coreNonCreatureCount() >= 7, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle core non-creature fallback', e); }
+  }
+  if (coreNonCreatureCount() < 7) {
+    const adjacentQueries = getThemeAdjacentQueries(theme);
+    for (const { query } of adjacentQueries) {
+      if (coreNonCreatureCount() >= 7) break;
+      try {
+        const adjacentSupport = await searchCards(`${query} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+        addCoreUntil(adjacentSupport, `theme-adjacent non-creature query: ${query}`, 'theme-adjacent', false, () => coreNonCreatureCount() >= 7, false);
+      } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent core non-creature query ${query}`, e); }
+    }
+  }
+  if (isTypal && coreNonCreatureCount() < 7) {
+    try {
+      const typalSupport = await searchCards(`${TYPAL_SUPPORT_ORACLE_QUERY} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+      addCoreUntil(typalSupport, 'typal support oracle fallback', 'typal-support', false, () => coreNonCreatureCount() >= 7, true);
+    } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal support core non-creature fallback', e); }
   }
   if (coreNonCreatureCount() < 7) {
     try {
@@ -369,24 +391,19 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   addCoreUntil(pool, coreFallbackSource, 'direct-theme', null, () => selected.length >= 12, true);
   if (selected.length < 12) logger?.line(`Core shortfall: selected ${selected.length}/12 after fallback hierarchy.`);
   logger?.line(`Core composition: creatures=${coreCreatureCount()} noncreatures=${coreNonCreatureCount()}`);
+
+  // ---- Random/fallback slots (target 11 to reach 23) ----
   const randomPool = pool.filter((c) => !selected.some((s) => sameCard(s, c)));
-  const isTypal = theme?.category === 'typal';
   if (isTypal) {
-    await runTypalSelectionPipeline({ name, colors, selected, legalEdhrec, randomPool, synergyNames, logger, addMany });
+    await runTypalSelectionPipeline({ name, colors, selected, randomPool, logger, addMany });
   } else {
     const logNonTypalStageFill = (stage, before) => logger?.line(`Non-typal stage ${stage} fill: +${selected.length - before} (${selected.length}/23).`);
     const stageAStart = selected.length;
-    if (synergyNames.length) addMany(legalEdhrec.filter((c) => !selected.some((s) => sameCard(s, c))), 'Random all-time', 'EDHREC high synergy cache', 'edhrec-synergy', null, 23);
-    logNonTypalStageFill('A (EDHREC synergy)', stageAStart);
+    addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
+    logNonTypalStageFill('A (direct theme query)', stageAStart);
 
     if (selected.length < 23) {
       const stageBStart = selected.length;
-      addMany(randomPool, 'Random all-time', 'Scryfall direct theme match', 'direct-theme', null, 23, true);
-      logNonTypalStageFill('B (direct theme query)', stageBStart);
-    }
-
-    if (selected.length < 23) {
-      const stageCStart = selected.length;
       const adjacentQueries = getThemeAdjacentQueries(theme);
       const enablersAndPayoffs = adjacentQueries.filter(({ group }) => group === 'mechanicEnablers' || group === 'mechanicPayoffs');
       for (const { query } of enablersAndPayoffs) {
@@ -403,10 +420,10 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
           );
         } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme enabler/payoff fallback query ${query}`, e); }
       }
-      logNonTypalStageFill('C (mechanic enablers/payoffs)', stageCStart);
+      logNonTypalStageFill('B (mechanic enablers/payoffs)', stageBStart);
 
       if (selected.length < 23) {
-        const stageDStart = selected.length;
+        const stageCStart = selected.length;
         const adjacentOnly = adjacentQueries.filter(({ group }) => group !== 'mechanicEnablers' && group !== 'mechanicPayoffs');
         for (const { query } of adjacentOnly) {
           if (selected.length >= 23) break;
@@ -422,7 +439,7 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
             );
           } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent fallback query ${query}`, e); }
         }
-        logNonTypalStageFill('D (theme-adjacent queries)', stageDStart);
+        logNonTypalStageFill('C (theme-adjacent queries)', stageCStart);
       }
     }
   }
@@ -441,7 +458,6 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('theme-oracle broadened fallback', e); }
   }
   if (selected.length < 23) {
-    logger?.line(`Non-typal/typal stage D generic color fallback needed: ${selected.length}/23.`);
     logger?.line(`Narrow color-locked fallback (last resort) needed: ${selected.length}/23.`);
     try { addMany(await searchCards(`${colorLock} -type:land`, { order: 'edhrec', limit: 500, logger }), 'Random all-time', 'generic color-compatible fallback', 'generic-color-filler', null, 23); } catch (e) { if (isHardOutage(e)) throw e; logger?.error('narrow fallback', e); }
   }

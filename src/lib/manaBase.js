@@ -2,12 +2,10 @@ import { BASIC_BY_COLOR, SNOW_BASIC_BY_COLOR } from './constants.js';
 import { countManaPips } from './manaPips.js';
 import { calculateLandCount } from './manaValue.js';
 import { colorIdentityWithin, isBasicLand, isPlayableMainDeckCard, sameCard, uniqueByOracle } from './filters.js';
-import { namedCard, randomCard, searchCards, ScryfallError } from './scryfallClient.js';
-import { getSynergyCardsForTag, EdhrecError } from './edhrecClient.js';
+import { randomCard, searchCards, ScryfallError } from './scryfallClient.js';
 
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
-  if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   return false;
 }
 import { exactOracleQuery } from './themeQueries.js';
@@ -79,23 +77,6 @@ function themeLandQuery(theme, colorQuery) {
   const aliases = LAND_THEME_ALIASES[key];
   if (aliases) for (const alias of aliases) branches.push(`oracle:/\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b/i`);
   return `(type:land (${branches.join(' OR ')})) type:land -type:basic ${colorQuery} game:paper lang:en`;
-}
-
-async function edhrecLandCards(theme, logger) {
-  let names = [];
-  try { names = await getSynergyCardsForTag(theme, { logger }); }
-  catch (e) { if (isHardOutage(e)) throw e; logger?.error(`EDHREC synergy lands for ${theme}`, e); }
-  const cards = [];
-  for (const name of names) {
-    try {
-      const card = await namedCard(name, { logger });
-      if (/Land/.test(card?.type_line || '')) cards.push(card);
-    } catch (e) {
-      if (isHardOutage(e)) throw e;
-      logger?.error(`EDHREC land named card ${name}`, e);
-    }
-  }
-  return cards;
 }
 
 function shuffle(cards, rng = Math.random) {
@@ -170,8 +151,6 @@ async function getNonbasics({ colors, theme, count, existing = [], logger, rng =
   const colorQuery = colors.length ? `id<=${colors.join('')}` : 'id:c';
   const genericQuery = `type:land -type:basic ${colorQuery} game:paper lang:en`;
   const themeCards = [];
-  try { themeCards.push(...await edhrecLandCards(theme, logger)); }
-  catch (e) { if (isHardOutage(e)) throw e; logger?.error('EDHREC non-basic lands', e); }
   const directLandQuery = themeLandQuery(theme, colorQuery);
   if (directLandQuery) {
     try { themeCards.push(...await searchCards(directLandQuery, { order: 'edhrec', limit: 100, logger })); }

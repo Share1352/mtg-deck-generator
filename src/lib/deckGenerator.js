@@ -7,12 +7,10 @@ import { buildManaBase } from './manaBase.js';
 import { exportDeck } from './exportDeck.js';
 import { validateDeck } from './validation.js';
 import { ScryfallError } from './scryfallClient.js';
-import { EdhrecError } from './edhrecClient.js';
 
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
-  if (error instanceof EdhrecError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
-  if (error && typeof error.message === 'string' && /no online theme source/i.test(error.message)) return true;
+  if (error && typeof error.message === 'string' && /Scryfall catalog/i.test(error.message)) return true;
   return false;
 }
 
@@ -28,7 +26,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
   } catch (error) {
     logger.error('theme pool fetch', error);
     const err = new Error(
-      `Online theme sources are unreachable. The deck generator only works while EDHREC and Scryfall are reachable. ${error.message}\n\n${logger.text()}`,
+      `Online theme sources are unreachable. The deck generator only works while Scryfall is reachable. ${error.message}\n\n${logger.text()}`,
     );
     err.cause = error;
     throw err;
@@ -72,7 +70,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
       logger.error(`generation attempt ${attempt}`, error);
       if (isHardOutage(error)) {
         const wrapped = new Error(
-          `Online card database is unreachable while building ${theme.name}. The deck generator only works while EDHREC and Scryfall are reachable. ${error.message}\n\n${logger.text()}`,
+          `Online card database is unreachable while building ${theme.name}. The deck generator only works while Scryfall is reachable. ${error.message}\n\n${logger.text()}`,
         );
         wrapped.cause = error;
         throw wrapped;

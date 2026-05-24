@@ -5,9 +5,9 @@ import { createRng } from '../lib/random.js';
 describe('theme pool', () => {
   it('merges sources, removes bans, dedupes, and keeps small themes', () => {
     const { themes, bannedCount } = mergeThemeSources([
-      { name: 'Mole', source: 'EDHREC tribes', category: 'typal' },
-      { name: 'Mole', source: 'EDHREC typal', category: 'typal' },
-      { name: 'Commander', source: 'EDHREC themes', category: 'theme' },
+      { name: 'Mole', source: 'Scryfall creature-types', category: 'typal' },
+      { name: 'Mole', source: 'Scryfall creature-types', category: 'typal' },
+      { name: 'Commander', source: 'Scryfall ability-words', category: 'theme' },
       { name: 'Flying', source: 'Scryfall keyword-abilities', category: 'mechanic' },
       { name: 'Mite', source: 'Scryfall creature-types', category: 'typal' },
     ]);
@@ -16,8 +16,7 @@ describe('theme pool', () => {
     expect(themes.map((t) => t.name)).toContain('Mite');
     expect(themes.map((t) => t.name.toLowerCase())).not.toContain('commander');
     expect(themes.filter((t) => t.name === 'Mole')).toHaveLength(1);
-    expect(themes.find((t) => t.name === 'Mole').sources).toContain('EDHREC tribes');
-    expect(themes.find((t) => t.name === 'Mole').sources).toContain('EDHREC typal');
+    expect(themes.find((t) => t.name === 'Mole').sources).toContain('Scryfall creature-types');
     expect(bannedCount).toBeGreaterThanOrEqual(1);
   });
 

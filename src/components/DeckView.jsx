@@ -16,7 +16,7 @@ export default function DeckView({ deck, onAgain }) {
     h('section', { className: 'play-cta' },
       h('button', { className: 'forge-button play', onClick: copyAndPlay }, 'Copy decklist & play on EDHPlay'),
     ),
-    h('section', null, h('h2', null, 'EDHREC synergy core'), h(CardGrid, { cards: deck.core })),
+    h('section', null, h('h2', null, 'Theme synergy core'), h(CardGrid, { cards: deck.core })),
     h('section', null, h('h2', null, 'Random all-time theme cards'), h(CardGrid, { cards: deck.random })),
     h('section', null, h('h2', null, 'Mana base'), h(CardGrid, { cards: deck.lands })),
     h('section', { className: 'actions' }, h('button', { className: 'secondary', onClick: copyDeck }, 'Export decklist'), h(DebugLogButton, { log: deck.debugLog })),

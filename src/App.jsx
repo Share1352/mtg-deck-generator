@@ -18,7 +18,7 @@ function errorHeadline(error) {
 function errorBlurb(error) {
   const msg = error?.message || 'Unknown error';
   if (/Online theme sources are unreachable/i.test(msg) || /Online card database is unreachable/i.test(msg)) {
-    return 'EDHREC and Scryfall must be reachable to build a deck. The app does not use any offline card data. Check your connection and try again.';
+    return 'Scryfall must be reachable to build a deck. The app does not use any offline card data. Check your connection and try again.';
   }
   return msg.split('\n')[0];
 }

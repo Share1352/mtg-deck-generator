@@ -1,7 +1,6 @@
 import { BANNED_THEMES } from './constants.js';
 import { choice } from './random.js';
 import { catalog } from './scryfallClient.js';
-import { getAllEdhrecThemes } from './edhrecClient.js';
 
 const TYPAL_KEYS = new Set([
   'myr', 'mite', 'thrull', 'ox', 'mole', 'serpent', 'dragon', 'elf', 'goblin',
@@ -45,11 +44,6 @@ export async function fetchScryfallThemeCatalogs({ logger } = {}) {
   return out;
 }
 
-export async function fetchEdhrecThemes({ logger } = {}) {
-  const themes = await getAllEdhrecThemes({ logger });
-  return themes.map((t) => ({ name: t.name, category: categorizeTheme(t.name, t.category), source: t.source }));
-}
-
 export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
   const bannedSet = new Set(banned.map(themeKey));
   const map = new Map();
@@ -82,32 +76,10 @@ export function pickUniformTheme(themes, rng = Math.random) {
 }
 
 export async function getFrontendThemePool({ logger } = {}) {
-  const entries = [];
-  const sourceErrors = [];
-
-  try {
-    const edhrec = await fetchEdhrecThemes({ logger });
-    entries.push(...edhrec);
-    logger?.line(`Loaded ${edhrec.length} themes from EDHREC.`);
-  } catch (error) {
-    sourceErrors.push(`EDHREC themes unavailable: ${error.message}`);
-    logger?.line(`EDHREC themes unavailable: ${error.message}`);
+  const catalogs = await fetchScryfallThemeCatalogs({ logger });
+  logger?.line(`Loaded ${catalogs.length} keyword/mechanic/type entries from Scryfall catalogs.`);
+  if (!catalogs.length) {
+    throw new Error('Cannot build a theme pool: Scryfall catalog endpoints returned no entries.');
   }
-
-  try {
-    const catalogs = await fetchScryfallThemeCatalogs({ logger });
-    entries.push(...catalogs);
-    logger?.line(`Loaded ${catalogs.length} keyword/mechanic/type entries from Scryfall catalogs.`);
-  } catch (error) {
-    sourceErrors.push(`Scryfall catalogs unavailable: ${error.message}`);
-    logger?.line(`Scryfall catalogs unavailable: ${error.message}`);
-  }
-
-  if (!entries.length) {
-    throw new Error(
-      `Cannot build a theme pool: no online theme source is reachable. ${sourceErrors.join(' | ')}`,
-    );
-  }
-
-  return mergeThemeSources(entries);
+  return mergeThemeSources(catalogs);
 }

@@ -6,8 +6,6 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest --run",
-    "prefetch-edhrec": "node scripts/prefetch-edhrec.js",
-    "prebuild": "node scripts/prefetch-edhrec.js --soft",
     "build": "vite build",
     "preview": "vite preview",
     "open:live": "node scripts/print-live-url.mjs"
