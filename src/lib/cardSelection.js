@@ -4,6 +4,7 @@ import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
 import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, hasUnsupportedSelfNameSynergy } from './synergyRules.js';
 import { shuffle } from './random.js';
+import { getThemeFamilyQueries, getFamilyLabels } from './themeFamilies.js';
 
 const GENERIC_TYPAL_SUPPORT_ALLOWLIST = new Set([
   "herald's horn",
@@ -352,6 +353,16 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('Changeling core creature fill', e); }
   }
   if (coreCreatureCount() < 5) {
+    const familyQueries = getThemeFamilyQueries(theme);
+    for (const { query, family, role } of familyQueries) {
+      if (coreCreatureCount() >= 5) break;
+      try {
+        const familyCreatures = await searchCards(`${query} ${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+        addCoreUntil(familyCreatures, `theme-family ${family} ${role} creature: ${query}`, 'theme-adjacent', true, () => coreCreatureCount() >= 5, false);
+      } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-family core creature ${family}/${role}`, e); }
+    }
+  }
+  if (coreCreatureCount() < 5) {
     try {
       const creatureSupport = await searchCards(`${colorLock} type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
       addCoreUntil(creatureSupport, 'color-locked creature/payoff fallback (last resort)', 'generic-color-filler', true, () => coreCreatureCount() >= 5);
@@ -381,6 +392,16 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
       const typalSupport = await searchCards(`${TYPAL_SUPPORT_ORACLE_QUERY} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
       addCoreUntil(typalSupport, 'typal support oracle fallback', 'typal-support', false, () => coreNonCreatureCount() >= 7, true);
     } catch (e) { if (isHardOutage(e)) throw e; logger?.error('typal support core non-creature fallback', e); }
+  }
+  if (coreNonCreatureCount() < 7) {
+    const familyQueries = getThemeFamilyQueries(theme);
+    for (const { query, family, role } of familyQueries) {
+      if (coreNonCreatureCount() >= 7) break;
+      try {
+        const familySupport = await searchCards(`${query} ${colorLock} -type:creature -type:land`, { order: 'edhrec', limit: 80, logger });
+        addCoreUntil(familySupport, `theme-family ${family} ${role} support: ${query}`, 'theme-adjacent', false, () => coreNonCreatureCount() >= 7, false);
+      } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-family core non-creature ${family}/${role}`, e); }
+    }
   }
   if (coreNonCreatureCount() < 7) {
     try {
@@ -440,6 +461,32 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
           } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-adjacent fallback query ${query}`, e); }
         }
         logNonTypalStageFill('C (theme-adjacent queries)', stageCStart);
+      }
+
+      if (selected.length < 23) {
+        const stageDStart = selected.length;
+        const familyQueries = getThemeFamilyQueries(theme);
+        const familyLabels = getFamilyLabels(theme);
+        if (familyQueries.length) {
+          logger?.line(`Theme family classification: ${familyLabels.join(', ') || 'none'} (${familyQueries.length} family queries).`);
+          for (const { query, family, role } of familyQueries) {
+            if (selected.length >= 23) break;
+            try {
+              addMany(
+                await searchCards(`${query} ${colorLock} -type:land`, { order: 'edhrec', limit: 160, logger }),
+                'Random all-time',
+                `theme-family ${family} ${role}: ${query}`,
+                'theme-adjacent',
+                null,
+                23,
+                false,
+              );
+            } catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme-family stage ${family}/${role}`, e); }
+          }
+        } else {
+          logger?.line(`Theme family classification: none detected for ${name}.`);
+        }
+        logNonTypalStageFill(`D (theme family ${familyLabels.join('/') || 'unknown'} enablers/payoffs)`, stageDStart);
       }
     }
   }
