@@ -1,4 +1,4 @@
-import { BANNED_THEMES } from './constants.js';
+import { BANNED_THEMES, CREATURE_TYPES } from './constants.js';
 import { choice } from './random.js';
 import { catalog } from './scryfallClient.js';
 
@@ -7,6 +7,7 @@ const TYPAL_KEYS = new Set([
   'zombie', 'cat', 'wizard', 'ninja', 'sliver', 'god', 'angel', 'demon',
   'human', 'soldier', 'spirit', 'merfolk', 'vampire', 'beast',
 ]);
+const singularKey = (key) => (key.endsWith('s') ? key.slice(0, -1) : key);
 const THEME_KEYS = new Set([
   'auras', 'equipment', 'equip', 'vehicles', 'crew', 'aristocrats',
   'spellslinger', 'blink', 'landfall', 'lifegain', 'tokens', 'artifacts',
@@ -18,7 +19,7 @@ export const themeKey = (name) => normalizeTheme(name).toLowerCase();
 
 export function categorizeTheme(name, hint = '') {
   const key = themeKey(name);
-  if (TYPAL_KEYS.has(key)) return 'typal';
+  if (TYPAL_KEYS.has(key) || CREATURE_TYPES.has(key) || CREATURE_TYPES.has(singularKey(key))) return 'typal';
   if (THEME_KEYS.has(key)) return 'theme';
   const hintLower = String(hint || '').toLowerCase();
   if (/tribe|typal|creature/.test(hintLower)) return 'typal';

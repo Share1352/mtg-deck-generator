@@ -47,13 +47,15 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
       onProgress(25);
       const selection = await selectCardsForTheme(theme, { logger, rng });
       onProgress(75);
-      const lands = await buildManaBase(selection.nonlands, selection.colors, { theme: theme.name, logger, rng });
+      const lands = await buildManaBase(selection.nonlands, selection.colors, { theme: theme.name, requiredLands: selection.requiredLands, logger, rng });
       onProgress(92);
       const deck = {
         appVersion: APP_VERSION,
         theme,
         colors: selection.colors,
         nonlands: selection.nonlands,
+        themeCards: selection.themeCards,
+        supportCards: selection.supportCards,
         core: selection.core,
         random: selection.random,
         lands,
