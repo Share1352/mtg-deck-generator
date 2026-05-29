@@ -2,7 +2,9 @@ import { isBasicLand } from './filters.js';
 export function displayName(card) { return (card.name || '').replace(/^A-/, ''); }
 export function exportDeck({ nonlands = [], lands = [] }) {
   const lines = [];
-  for (const card of nonlands) lines.push(`1 ${displayName(card)}`);
+  const grouped = new Map();
+  for (const card of nonlands) { const key = displayName(card); grouped.set(key, (grouped.get(key) || 0) + 1); }
+  for (const [name, count] of grouped) lines.push(`${count} ${name}`);
   const groupedBasics = new Map();
   for (const card of lands) {
     if (isBasicLand(card) && card.set && card.collector_number) {
