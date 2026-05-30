@@ -1,9 +1,9 @@
 import { searchCards, namedCard, ScryfallError } from './scryfallClient.js';
 import { buildThemeQuery, getHostQuery, getThemeAdjacentQueries } from './themeQueries.js';
 import { getThemeFamilyQueries } from './themeFamilies.js';
-import { getSupportPlan } from './supportProfiles.js';
+import { getSupportPlan, inferSupportTiersFromCards } from './supportProfiles.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
-import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, isOffColorSupportCard, uniqueByOracle, sameCard } from './filters.js';
+import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, isOffColorSupportCard, oracleText, typeLine, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, copiesFor } from './synergyRules.js';
 import { shuffle } from './random.js';
 
@@ -14,6 +14,14 @@ const CREATURE_FLOOR = 6; // never ship a deck that cannot field bodies
 const MIN_DIRECT_THEME_CARDS = 10; // reroll genuinely unbuildable themes (preserved from main)
 
 const lower = (c) => String(c?.name || '').toLowerCase();
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const pluralize = (name) => {
+  const n = String(name || '');
+  if (/f$/i.test(n)) return `${n.slice(0, -1)}ves`;
+  if (/[sxz]$/i.test(n) || /ch$/i.test(n) || /sh$/i.test(n)) return `${n}es`;
+  if (/y$/i.test(n) && !/[aeiou]y$/i.test(n)) return `${n.slice(0, -1)}ies`;
+  return `${n}s`;
+};
 export function colorClause(colors) { return colors.length ? `id<=${colors.join('')}` : 'id:c'; }
 function isHardOutage(error) { return error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429); }
 // Land-target requirements (fetch a basic / a land) are guaranteed by the mana base, not the 23 non-lands.
@@ -26,7 +34,28 @@ async function themePoolCards(theme, logger) {
     try { cards.push(...await searchCards(`${q} game:paper lang:en`, { order: 'edhrec', limit: 120, logger })); }
     catch (e) { if (isHardOutage(e)) throw e; logger?.error(`theme pool query ${q}`, e); }
   }
-  return uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false })));
+  return uniqueByOracle(cards.filter((c) => isPlayableMainDeckCard(c, { allowLands: false, allowGoodstuff: false }) && isDirectThemeCard(c, theme)));
+}
+
+export function isDirectThemeCard(card, theme) {
+  if (!card) return false;
+  if ((typeof theme === 'object' ? theme?.category : null) !== 'typal') return true;
+  const name = String(theme?.name || theme || '');
+  const singular = escapeRe(name);
+  const plural = escapeRe(pluralize(name));
+  const typeRe = new RegExp(`(^|[\\s—-])${singular}([\\s—-]|$)`, 'i');
+  if (typeRe.test(typeLine(card))) return true;
+  const text = oracleText(card);
+  const word = `(?:${singular}|${plural})`;
+  return [
+    new RegExp(`\\bother ${word}\\b`, 'i'),
+    new RegExp(`\\b${word} you control\\b`, 'i'),
+    new RegExp(`\\bwhenever (?:a|another|one or more) ${word}\\b`, 'i'),
+    new RegExp(`\\beach ${word}\\b`, 'i'),
+    new RegExp(`\\bcreate\\b[^.\\n;]*\\b${word}\\b[^.\\n;]*\\b(?:creature )?token\\b`, 'i'),
+    /\bchoose a creature type\b/i,
+    /\bchosen type\b/i,
+  ].some((re) => re.test(text));
 }
 
 export async function selectCardsForTheme(theme, { logger, rng = Math.random } = {}) {
@@ -78,18 +107,27 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const hostQ = getHostQuery(name);
 
   // --- PHASE A: high-EDHREC half of the on-theme 60% (random pick among high edhrec-rated theme cards) ---
-  const highList = uniqueByOracle([...localPool, ...await fetchTheme(themeQ, 'edhrec', 80)]);
+  const highList = uniqueByOracle([...localPool, ...await fetchTheme(themeQ, 'edhrec', 80)].filter((c) => isDirectThemeCard(c, theme)));
   addFromList(highList, { section: 'On-theme (high EDHREC)', source: 'Scryfall edhrec-rank theme pool', reason: 'random pick among high edhrec-rated theme cards' }, { until: HIGH_EDHREC_TARGET });
   for (const c of selected) protectedNames.add(lower(c));
 
   // --- PHASE B: random all-time half (random across all MTG history within the theme) ---
-  const randomList = uniqueByOracle([...localPool, ...await fetchTheme(themeQ, 'random', 80)]);
+  const randomList = uniqueByOracle([...localPool, ...await fetchTheme(themeQ, 'random', 80)].filter((c) => isDirectThemeCard(c, theme)));
   addFromList(randomList, { section: 'On-theme (random all-time)', source: 'Scryfall random across all MTG history', reason: 'random theme card from full history' }, { until: THEME_TARGET });
   logger?.line(`On-theme cards selected: ${selected.length}/${THEME_TARGET} (target ${HIGH_EDHREC_TARGET} high-edhrec + ${THEME_TARGET - HIGH_EDHREC_TARGET} random all-time)`);
 
   // --- PHASE C: smart 40% support package tailored to the theme's archetype ---
   const plan = getSupportPlan(name, category);
   logger?.line(`Support archetype: ${plan.id} (${plan.tiers.length} tiers)`);
+  const inferredTiers = inferSupportTiersFromCards(selected);
+  if (inferredTiers.length) {
+    const needs = [...new Set(inferredTiers.map((tier) => tier.inferredLabel))].join(', ');
+    logger?.line(`Inferred support needs from selected theme cards: ${needs}`);
+  }
+  for (const tier of inferredTiers) {
+    if (selected.length >= TOTAL) break;
+    addFromList(await fetchTheme(tier.query, 'edhrec', 80), { section: 'Support', source: `inferred need: ${tier.label}`, reason: `${tier.inferredLabel} support inferred from selected theme cards` }, { creature: tier.creature, until: TOTAL });
+  }
   for (const tier of plan.tiers) {
     if (selected.length >= TOTAL) break;
     addFromList(await fetchTheme(tier.query, 'edhrec', 60), { section: 'Support', source: `support tier: ${tier.label}`, reason: `${plan.id} support` }, { creature: tier.creature, until: TOTAL });

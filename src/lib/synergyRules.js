@@ -77,6 +77,8 @@ export const hasUnsupportedSelfNameSynergy = () => false;
 export function copiesFor(card) {
   const text = oracleText(card).toLowerCase();
   if (/a deck can have any number of cards named/.test(text)) return 6;
+  if (/\bgrandeur\b/.test(text)) return 3;
+  if (/\banother card named\b/.test(text)) return 3;
   if (referencesOwnName(card)) return 3;
   return 1;
 }

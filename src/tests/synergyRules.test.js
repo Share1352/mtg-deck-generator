@@ -21,6 +21,11 @@ describe('direct synergy rules', () => {
     expect(copiesFor(rats)).toBe(6);
   });
 
+  it('runs Grandeur cards with enough copies for their printed ability', () => {
+    const korlash = card('Korlash, Heir to Blackblade', 'Legendary Creature — Zombie Warrior', 'Grandeur — Discard another card named Korlash, Heir to Blackblade: Regenerate Korlash.');
+    expect(copiesFor(korlash)).toBe(3);
+  });
+
   it('requires direct named-card references to be present', () => {
     const caller = card('Bogbrew Witch', 'Creature — Human Wizard', 'Search your library for a card named Festering Newt or Bubbling Cauldron, reveal it, put it into your hand, then shuffle.');
     expect(directSynergyIssues([caller]).some((issue) => issue.type === 'named-card')).toBe(true);

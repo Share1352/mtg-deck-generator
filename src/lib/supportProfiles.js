@@ -1,5 +1,6 @@
 import { themeKey, categorizeTheme } from './themePool.js';
 import { exactOracleQuery } from './themeQueries.js';
+import { oracleText, typeLine } from './filters.js';
 
 // A support tier is { label, query, creature } where creature true=creature only, false=non-creature only, null=any.
 // Tiers are tried in order until the support quota is filled. Queries get color-locked by the caller.
@@ -34,6 +35,95 @@ function keywordTiers(theme) {
     { label: `grants ${theme} to your creatures`, query: `(oracle:/gains? ${t}/i OR oracle:/creatures? you control (?:have|gain) ${t}/i OR oracle:/have ${t}/i) -type:land`, creature: null },
     { label: `creature bodies with ${theme}`, query: `(keyword:"${theme}" OR ${re(theme)}) type:creature`, creature: true },
   ];
+}
+
+const INFERRED_NEEDS = [
+  {
+    id: 'instant-sorcery-density',
+    label: 'instant/sorcery density',
+    weight: 3,
+    match: (text) => /\binstant(?:s)? (?:and|or) sorcer(?:y|ies)\b|\binstant or sorcery spell\b|\binstant and sorcery spells\b/i.test(text),
+    tiers: [
+      { label: 'cheap instants and sorceries for theme cards', query: '(type:instant OR type:sorcery) cmc<=3 -type:land', creature: false },
+      { label: 'spell recursion / flashback to keep spells flowing', query: '(keyword:flashback OR keyword:jump-start OR keyword:rebound OR oracle:"return target instant" OR oracle:"return target sorcery") -type:land', creature: null },
+      { label: 'spellslinger payoffs that reward the same plan', query: '(otag:spellslinger OR keyword:prowess OR oracle:"whenever you cast an instant or sorcery" OR oracle:"whenever you cast a noncreature") -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'noncreature-spell-density',
+    label: 'noncreature spell density',
+    weight: 3,
+    match: (text) => /\bnoncreature spell\b|\bnoncreature spells\b/i.test(text),
+    tiers: [
+      { label: 'cheap noncreature spells for theme cards', query: '-type:creature -type:land cmc<=3', creature: false },
+      { label: 'noncreature spell payoffs', query: '(keyword:prowess OR oracle:"whenever you cast a noncreature" OR oracle:"noncreature spells you cast cost") -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'artifact-density',
+    label: 'artifact density',
+    weight: 2,
+    match: (text) => /\bartifacts? you control\b|\bwhenever an artifact\b|\bfor each artifact\b|\bartifact spell\b/i.test(text),
+    tiers: [
+      { label: 'cheap artifacts for theme cards', query: 'type:artifact cmc<=2 -type:land', creature: null },
+      { label: 'artifact token makers', query: '(oracle:"create" oracle:"treasure" OR oracle:"create" oracle:"clue" OR oracle:"create" oracle:"food" OR oracle:"create" oracle:"powerstone") -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'token-density',
+    label: 'token density',
+    weight: 2,
+    match: (text) => /\btokens? you control\b|\bwhenever .* token\b|\bfor each .* token\b|\bcreature tokens? you control\b/i.test(text),
+    tiers: [
+      { label: 'token makers for theme cards', query: '(oracle:"create" oracle:"creature token") -type:land', creature: null },
+      { label: 'token payoffs', query: '(otag:tokens-matter OR oracle:"whenever" oracle:"token" OR oracle:"creatures you control get +") -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'graveyard-density',
+    label: 'graveyard fuel',
+    weight: 2,
+    match: (text) => /\byour graveyard\b|\bfrom your graveyard\b|\bcards in your graveyard\b|\bgraveyards?\b/i.test(text),
+    tiers: [
+      { label: 'self-mill and discard to fuel theme cards', query: '(otag:self-mill OR oracle:"mill" OR oracle:"discard a card" OR oracle:"discard your hand") -type:land', creature: null },
+      { label: 'graveyard recursion for theme cards', query: '(oracle:"return" oracle:"from your graveyard" OR keyword:flashback OR keyword:escape OR keyword:unearth) -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'counter-density',
+    label: 'counter support',
+    weight: 2,
+    match: (text) => /\b\+1\/\+1 counters?\b|\bcounters? on\b|\bproliferate\b/i.test(text),
+    tiers: [
+      { label: '+1/+1 counter sources for theme cards', query: '(oracle:"+1/+1 counter" OR keyword:proliferate OR otag:counters-matter) -type:land', creature: null },
+      { label: 'counter payoffs', query: '(oracle:"whenever" oracle:"counter" OR oracle:"for each +1/+1 counter" OR oracle:"creatures you control with counters") -type:land', creature: null },
+    ],
+  },
+  {
+    id: 'sacrifice-density',
+    label: 'sacrifice support',
+    weight: 2,
+    match: (text) => /\bsacrifice (?:a|an|another|one or more)\b|\bwhenever .* dies\b/i.test(text),
+    tiers: [
+      { label: 'sacrifice outlets for theme cards', query: '(oracle:"sacrifice a creature:" OR oracle:"sacrifice another creature" OR oracle:", sacrifice") -type:land', creature: null },
+      { label: 'fodder for sacrifice theme cards', query: '(oracle:"create" oracle:"creature token" OR oracle:"return" oracle:"from your graveyard to the battlefield") -type:land', creature: null },
+    ],
+  },
+];
+
+export function inferSupportTiersFromCards(cards, { minScore = 2 } = {}) {
+  const scored = [];
+  for (const def of INFERRED_NEEDS) {
+    let score = 0;
+    for (const card of cards || []) {
+      const text = `${oracleText(card)}\n${typeLine(card)}`;
+      if (def.match(text)) score += def.weight;
+    }
+    if (score >= minScore) {
+      for (const tier of def.tiers) scored.push({ ...tier, inferredNeed: def.id, inferredLabel: def.label, score });
+    }
+  }
+  return scored.sort((a, b) => b.score - a.score);
 }
 
 const ARCHETYPES = [

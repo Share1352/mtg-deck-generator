@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSupportPlan } from '../lib/supportProfiles.js';
+import { getSupportPlan, inferSupportTiersFromCards } from '../lib/supportProfiles.js';
 import { needsColorless } from '../lib/manaBase.js';
 
 describe('support profiles', () => {
@@ -28,6 +28,15 @@ describe('support profiles', () => {
     expect(elf.id).toBe('typal');
     expect(elf.tiers.some((t) => /changeling/i.test(t.query))).toBe(true);
     expect(getSupportPlan('Flying', 'mechanic').id).toBe('keyword');
+  });
+
+  it('infers instant and sorcery support from selected theme cards', () => {
+    const tiers = inferSupportTiersFromCards([
+      { name: 'Melek', type_line: 'Creature — Weird Wizard', oracle_text: 'Whenever you cast an instant or sorcery spell, copy it.' },
+      { name: 'Spellgorger Weird', type_line: 'Creature — Weird', oracle_text: 'Whenever you cast a noncreature spell, put a +1/+1 counter on Spellgorger Weird.' },
+    ]);
+    expect(tiers.some((t) => /instant\/sorcery|instants and sorceries/i.test(t.label))).toBe(true);
+    expect(tiers[0].query).toMatch(/type:instant|type:sorcery|-type:creature/);
   });
 });
 
