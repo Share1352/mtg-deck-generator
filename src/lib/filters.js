@@ -21,6 +21,22 @@ const sidePhrases = [
   /outside the game/i,
 ];
 const bandingPatterns = [/\bbanding\b/i, /\bbands? with other\b/i];
+// Mechanics/cards that only function in multiplayer (3+ players). This app builds 1v1 decks,
+// so these are dead or degraded weight. Myriad makes copies attacking *other* opponents (none in 1v1);
+// the council/vote/join-forces family is table politics; "attacks one of your opponents" style triggers
+// (e.g. Combat Calligrapher) need players attacking each other. Goad and Melee are kept — both work in 1v1.
+const multiplayerKeywords = new Set(['myriad', 'join forces', 'tempting offer', 'will of the council', "council's dilemma", 'parley']);
+const multiplayerPhrases = [
+  /\bmyriad\b/i,
+  /\bjoin forces\b/i,
+  /\btempting offer\b/i,
+  /\bwill of the council\b/i,
+  /\bcouncil'?s dilemma\b/i,
+  /\bparley\b/i,
+  /each player votes/i,
+  /\bvotes? for\b/i,
+  /attacks one of your opponents/i,
+];
 const bannedSets = new Set([
   '40k','t40k','pw23',
   'who','twho',
@@ -89,6 +105,12 @@ export function isCommanderOnly(card) {
   return commanderPhrases.some((re) => re.test(oracleText(card)));
 }
 export function needsSideDeck(card) { return sidePhrases.some((re) => re.test(`${oracleText(card)} ${typeLine(card)}`)); }
+export function isMultiplayerOnly(card) {
+  if (!card) return false;
+  const keywords = Array.isArray(card.keywords) ? card.keywords : [];
+  if (keywords.some((k) => multiplayerKeywords.has(String(k).toLowerCase().trim()))) return true;
+  return multiplayerPhrases.some((re) => re.test(oracleText(card)));
+}
 export function hasBanding(card) {
   if (!card) return false;
   const keywords = Array.isArray(card.keywords) ? card.keywords : [];
@@ -109,6 +131,7 @@ export function isPlayableMainDeckCard(card, { allowLands = true, allowGoodstuff
   if (invalidTypeWords.some((word) => new RegExp(`(^|\\s|—)${word}(\\s|$)`, 'i').test(types))) return false;
   if (isCommanderOnly(card) || needsSideDeck(card) || isBannedCrossover(card)) return false;
   if (hasBanding(card)) return false;
+  if (isMultiplayerOnly(card)) return false;
   if (/draft/i.test(oracleText(card))) return false;
   return true;
 }

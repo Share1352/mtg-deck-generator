@@ -42,6 +42,17 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Old Bands-With-Other', type_line: 'Creature — Soldier', oracle_text: 'Bands with other Legends.' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Channel', oracle_text: 'Pay X life. Add X.', legalities: { commander: 'banned' } }))).toBe(false);
   });
+  it('rejects multiplayer-only mechanics and cards (1v1 app)', () => {
+    expect(isPlayableMainDeckCard(card({ name: 'Combat Calligrapher', type_line: 'Creature — Bird Cleric', oracle_text: 'Flying\nWhenever a player attacks one of your opponents, that player creates a 2/1 Inkling token.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Broodmate Myriad', keywords: ['Myriad'], oracle_text: 'Myriad (Whenever this attacks, for each opponent other than defending player, create a token copy.)' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Treasure Nabber Forces', oracle_text: 'Join forces — Starting with you, each player may pay any amount of mana.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: "Council's Judgment", oracle_text: "Will of the council — Starting with you, each player votes for a nonland permanent." }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Tempt with Reflections', oracle_text: 'Tempting offer — Create a token copy. Each opponent may also create one.' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Coercive Portal', oracle_text: "Council's dilemma — Starting with you, each player votes for carnage or homage." }))).toBe(false);
+    // 1v1-functional lookalikes must stay playable
+    expect(isPlayableMainDeckCard(card({ name: 'Adeline, Resplendent Cathar', type_line: 'Creature — Human Soldier', oracle_text: 'Whenever Adeline attacks, for each opponent, create a 1/1 white Human creature token.' }))).toBe(true);
+    expect(isPlayableMainDeckCard(card({ name: 'Goading Beast', type_line: 'Creature — Beast', oracle_text: 'When this enters, goad target creature. (It attacks each combat if able and attacks a player other than you if able.)' }))).toBe(true);
+  });
   it('allows specified valid categories', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Frodo, Adventurous Hobbit', set: 'ltr' }))).toBe(true);
     expect(isPlayableMainDeckCard(card({ name: 'Aragorn, the Uniter', set: 'ltc', set_name: 'Tales of Middle-earth Commander' }))).toBe(true);
