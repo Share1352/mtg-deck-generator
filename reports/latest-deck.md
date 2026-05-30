@@ -7,180 +7,168 @@
 | Field | Value |
 | --- | --- |
 | Status | OK ✅ |
-| Generated | 2026-05-30T13:07:22.221Z |
-| Commit | `5df316343e7faf00a514aff2b8b16f914b1d6d52` |
-| Theme | Counterspell Automatic |
-| Colors | U |
-| Counts | nonlands=23 lands=22 total=45 |
-| Seed | 1780146442221 |
-| CI run | https://github.com/Share1352/mtg-deck-generator/actions/runs/26684580668 |
+| Generated | 2026-05-30T13:32:36.243Z |
+| Commit | `c955567ae72b7bf18acf56bd2cc18bc6a59bde0a` |
+| Theme | Construct |
+| Colors | BW |
+| Counts | nonlands=23 lands=23 total=46 |
+| Seed | 1780147956243 |
+| CI run | https://github.com/Share1352/mtg-deck-generator/actions/runs/26685088104 |
 
 ## Deck list
 
 ```
-1 Kira, Great Glass-Spinner
-1 Cephalid Shrine
-1 Jace, Unraveler of Secrets
-1 Ice Cave
-1 Bazaar of Wonders
-1 Lunar Force
-1 Swindler's Scheme
-1 Void Mirror
-1 Ambiguity
-1 Jin-Gitaxias, Progress Tyrant
-1 Chalice of the Void
-1 Vexing Bauble
-1 Jetting Glasskite
-1 Nullstone Gargoyle
-1 Unctus, Grand Metatect
-1 Ruin Crab
-1 Mesmeric Orb
-1 Smuggler's Copter
-1 Kozilek, the Great Distortion
-1 Three Steps Ahead
-1 Library of Leng
-1 Bag of Holding
-1 The Millennium Calendar
-1 Urza's Mine
-1 Urza's Tower
-1 Urborg, Tomb of Yawgmoth
-1 Wasteland
-1 Tomb of the Spirit Dragon
-1 Dark Depths
-1 Secluded Courtyard
-1 Urza's Power Plant
-1 Valgavoth's Lair
-1 Plaza of Heroes
-1 Misty Rainforest
-2 Island (S99) 159
-4 Island (S99) 160
-3 Island (S99) 158
-1 Wastes (SLD) 706
-1 Wastes (CMM) 1056
+1 Su-Chi Cave Guard
+1 Walking Atlas
+1 Scrapyard Recombiner
+1 Lupine Prototype
+1 Traxos, Scourge of Kroog
+1 Hexavus
+1 Ancient Stone Idol
+1 Karn, Scion of Urza
+1 Gemini Engine
+1 Shardless Outlander
+1 Triskelion
+1 Automatic Librarian
+1 Eager Construct
+1 Wishclaw Talisman
+1 Hangarback Walker
+1 Vat of Rebirth
+1 Woe Strider
+1 Parting Gust
+1 Tezzeret, Cruel Captain
+1 Threefold Thunderhulk
+1 Sword of Truth and Justice
+1 Grateful Apparition
+1 Elenda, the Dusk Rose
+1 Bojuka Bog
+1 Vault of Champions
+1 Minas Tirith
+1 Shattered Sanctum
+1 Shadowy Backstreet
+1 Orzhov Guildgate
+1 Shineshadow Snarl
+1 Witch Enchanter // Witch-Blessed Meadow
+1 Razorgrass Ambush // Razorgrass Field
+1 Frostwalk Bastion
+1 Hostile Hostel // Creeping Inn
+1 Swamp (ZEN) 239
+1 Swamp (ZEN) 238a
+2 Swamp (ZEN) 238
+2 Swamp (ZEN) 239a
+1 Swamp (ZEN) 241a
+1 Plains (ZEN) 232a
+1 Plains (ZEN) 231
+2 Plains (ZEN) 233a
+1 Plains (ZEN) 230a
 ```
 
 ## Full generation log
 
 ```
-[13:07:22] START v2.0.0 seed=1780146442221
-[13:07:22] Scryfall request /catalog/keyword-abilities 
-[13:07:22] Scryfall Oracle Tagger themes: 5238 functional tags from https://scryfall.com/docs/tagger-tags
-[13:07:22] Scryfall /catalog/keyword-abilities status=200 attempt=1/8
-[13:07:22] Scryfall catalog keyword-abilities: 218 entries
-[13:07:22] Scryfall request /catalog/keyword-actions 
-[13:07:22] Scryfall /catalog/keyword-actions status=200 attempt=1/8
-[13:07:22] Scryfall catalog keyword-actions: 73 entries
-[13:07:22] Scryfall request /catalog/ability-words 
-[13:07:22] Scryfall /catalog/ability-words status=200 attempt=1/8
-[13:07:22] Scryfall catalog ability-words: 70 entries
-[13:07:22] Scryfall request /catalog/creature-types 
-[13:07:22] Scryfall /catalog/creature-types status=200 attempt=1/8
-[13:07:22] Scryfall catalog creature-types: 329 entries
-[13:07:22] Loaded 690 keyword/mechanic/type entries from Scryfall catalogs.
-[13:07:22] Loaded 32 color-combination themes.
-[13:07:22] Candidate themes after dedupe/bans: 5843
-[13:07:22] Banned theme count: 42
-[13:07:22] Attempt 1: selected theme: Lammasu / typal / source: Scryfall creature-types
-[13:07:22] Scryfall request /cards/search q=%28type%3A%22Lammasu%22+OR+oracle%3A%2F%5CbLammasu%5Cb%2Fi+OR+oracle%3A%2F%5CbLammasus%5Cb%2Fi%29+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:23] Scryfall /cards/search status=200 attempt=1/8
-[13:07:23] Scryfall search count=3 q=(type:"Lammasu" OR oracle:/\bLammasu\b/i OR oracle:/\bLammasus\b/i) game:paper lang:en
-[13:07:23] ERROR generation attempt 1: Theme Lammasu rejected: only 3 direct theme cards found; minimum is 10.
-[13:07:23] Rerolled theme "Lammasu" because it could not produce a valid themed 23-card package under the 10-card direct theme minimum: Theme Lammasu rejected: only 3 direct theme cards found; minimum is 10.
-[13:07:23] Attempt 2: selected theme: Cycle Eld U Adamant Spell / tagger / source: Scryfall Oracle Tagger
-[13:07:23] Scryfall request /cards/search q=otag%3A%22cycle-eld-u-adamant-spell%22+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:23] Scryfall /cards/search status=200 attempt=1/8
-[13:07:23] Scryfall search count=5 q=otag:"cycle-eld-u-adamant-spell" game:paper lang:en
-[13:07:23] ERROR generation attempt 2: Theme Cycle Eld U Adamant Spell rejected: only 5 direct theme cards found; minimum is 10.
-[13:07:23] Rerolled theme "Cycle Eld U Adamant Spell" because it could not produce a valid themed 23-card package under the 10-card direct theme minimum: Theme Cycle Eld U Adamant Spell rejected: only 5 direct theme cards found; minimum is 10.
-[13:07:23] Attempt 3: selected theme: Counterspell Automatic / tagger / source: Scryfall Oracle Tagger
-[13:07:23] Scryfall request /cards/search q=otag%3A%22counterspell-automatic%22+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:23] Scryfall /cards/search status=200 attempt=1/8
-[13:07:23] Scryfall search count=33 q=otag:"counterspell-automatic" game:paper lang:en
-[13:07:23] Theme pool valid cards: 32
-[13:07:23] Theme pool color counts: W=5 U=21 B=1 R=2 G=0
-[13:07:23] Dominance threshold: 12.6
-[13:07:23] Dominant colors: U
-[13:07:23] Equal-color case: no
-[13:07:23] Multicolor exception: not triggered
-[13:07:23] Final chosen deck colors: U
-[13:07:23] Scryfall request /cards/search q=otag%3A%22counterspell-automatic%22+id%3C%3DU+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:24] Scryfall /cards/search status=200 attempt=1/8
-[13:07:24] Scryfall search count=25 q=otag:"counterspell-automatic" id<=U game:paper lang:en
-[13:07:24] On-theme (high EDHREC) card added: Kira, Great Glass-Spinner / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Cephalid Shrine / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Jace, Unraveler of Secrets / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Ice Cave / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Bazaar of Wonders / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Lunar Force / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] On-theme (high EDHREC) card added: Swindler's Scheme / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[13:07:24] Scryfall request /cards/search q=otag%3A%22counterspell-automatic%22+id%3C%3DU+game%3Apaper+lang%3Aen&unique=cards&order=random&dir=asc
-[13:07:24] Scryfall /cards/search status=200 attempt=1/8
-[13:07:24] Scryfall search count=25 q=otag:"counterspell-automatic" id<=U game:paper lang:en
-[13:07:24] On-theme (random all-time) card added: Void Mirror / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Ambiguity / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Jin-Gitaxias, Progress Tyrant / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Chalice of the Void / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Vexing Bauble / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Jetting Glasskite / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme (random all-time) card added: Nullstone Gargoyle / source: Scryfall random across all MTG history / reason: random theme card from full history
-[13:07:24] On-theme cards selected: 14/14 (target 7 high-edhrec + 7 random all-time)
-[13:07:24] Support archetype: keyword (3 tiers)
-[13:07:24] Inferred support needs from selected theme cards: graveyard fuel, counter support, noncreature spell density, token density
-[13:07:24] Scryfall request /cards/search q=%28otag%3Aself-mill+OR+oracle%3A%22mill%22+OR+oracle%3A%22discard+a+card%22+OR+oracle%3A%22discard+your+hand%22%29+-type%3Aland+id%3C%3DU+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:25] Scryfall /cards/search status=200 attempt=1/8
-[13:07:25] Scryfall search count=175 q=(otag:self-mill OR oracle:"mill" OR oracle:"discard a card" OR oracle:"discard your hand") -type:land id<=U game:paper lang:en
-[13:07:25] Support card added: Unctus, Grand Metatect / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Ruin Crab / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Mesmeric Orb / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Smuggler's Copter / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Kozilek, the Great Distortion / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Three Steps Ahead / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Library of Leng / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: Bag of Holding / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Support card added: The Millennium Calendar / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
-[13:07:25] Synergy validation passed after 0 repair pass(es).
-[13:07:25] Final non-land split: theme=14 support=9 creatures=7
-[13:07:25] Average mana value: 3.80
-[13:07:25] Virtual curve entries: 23
-[13:07:25] Final land count: 22. Reason: 15 + average mana value 3.80 * 1.8, clamped to 15-25
-[13:07:25] Pip counts: {"W":0,"U":23.400000000000006,"B":0,"R":0,"G":0} snowRequired=false snowMatters=false colorlessNeed=true
-[13:07:25] Injected 2x Wastes so colorless {C} costs are always castable.
-[13:07:25] Basic land allocation: Island, Island, Island, Island, Island, Island, Island, Island, Island, Wastes, Wastes
-[13:07:25] Scryfall request /cards/search q=%21%22Island%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
-[13:07:25] Scryfall /cards/search status=200 attempt=1/8
-[13:07:25] Scryfall /cards/search:page status=200 attempt=1/8
-[13:07:25] Scryfall search count=350 q=!"Island" include:extras unique:prints lang:en
-[13:07:25] Scryfall request /cards/search q=%21%22Wastes%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
-[13:07:25] Scryfall /cards/search status=200 attempt=1/8
-[13:07:25] Scryfall search count=18 q=!"Wastes" include:extras unique:prints lang:en
-[13:07:25] Random basic-land art set: S99
-[13:07:25] Scryfall request /cards/search q=%28type%3Aland+%28otag%3A%22counterspell+automatic%22+OR+oracle%3A%2F%5CbCounterspell+Automatic%5Cb%2Fi+OR+type%3A%22Counterspell+Automatic%22%29%29+type%3Aland+-type%3Abasic+id%3C%3DU+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:25] Scryfall /cards/search status=404 attempt=1/8
-[13:07:25] Scryfall search returned no matches for q=(type:land (otag:"counterspell automatic" OR oracle:/\bCounterspell Automatic\b/i OR type:"Counterspell Automatic")) type:land -type:basic id<=U game:paper lang:en
-[13:07:25] Theme-related nonbasic lands found: 0
-[13:07:25] Not enough theme non-basic lands; filling with compatible non-basics.
-[13:07:25] Scryfall request /cards/search q=type%3Aland+-type%3Abasic+id%3C%3DU+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[13:07:27] Scryfall /cards/search status=200 attempt=1/8
-[13:07:27] Scryfall search count=175 q=type:land -type:basic id<=U game:paper lang:en
-[13:07:27] Scryfall request /cards/named exact=Urza%27s+Mine
-[13:07:27] Scryfall /cards/named status=200 attempt=1/8
-[13:07:27] Land synergy: added Urza's Mine required by Urza's Power Plant.
-[13:07:27] Scryfall request /cards/named exact=Urza%27s+Tower
-[13:07:27] Scryfall /cards/named status=200 attempt=1/8
-[13:07:27] Land synergy: added Urza's Tower required by Urza's Power Plant.
-[13:07:27] Scryfall request /cards/search q=%21%22Urborg%2C+Tomb+of+Yawgmoth%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[13:07:27] Scryfall /cards/search status=200 attempt=1/8
-[13:07:27] Scryfall search count=10 q=!"Urborg, Tomb of Yawgmoth" unique:prints game:paper lang:en
-[13:07:27] Alt art rolled for Urborg, Tomb of Yawgmoth: M15 248
-[13:07:27] Scryfall request /cards/search q=%21%22Wasteland%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[13:07:27] Scryfall /cards/search status=200 attempt=1/8
-[13:07:27] Scryfall search count=16 q=!"Wasteland" unique:prints game:paper lang:en
-[13:07:27] Alt art rolled for Wasteland: ZNE 30
-[13:07:27] Scryfall request /cards/search q=%21%22Secluded+Courtyard%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[13:07:27] Scryfall /cards/search status=200 attempt=1/8
-[13:07:27] Scryfall search count=9 q=!"Secluded Courtyard" unique:prints game:paper lang:en
-[13:07:27] Alt art rolled for Secluded Courtyard: ECC 62
-[13:07:27] Non-basic land allocation: Urza's Mine, Urza's Tower, Urborg, Tomb of Yawgmoth, Wasteland, Tomb of the Spirit Dragon, Dark Depths, Secluded Courtyard, Urza's Power Plant, Valgavoth's Lair, Plaza of Heroes, Misty Rainforest
-[13:07:27] Final whole-deck synergy check: 2 unresolved synergy issue(s) (non-fatal): Urza's Mine directly references missing card Urza's Power-Plant; Urza's Tower directly references missing card Urza's Power-Plant
-[13:07:27] Final deck counts: nonlands=23 lands=22 total=45
+[13:32:36] START v2.0.0 seed=1780147956243
+[13:32:36] Scryfall request /catalog/keyword-abilities 
+[13:32:36] Scryfall Oracle Tagger themes: 5238 functional tags from https://scryfall.com/docs/tagger-tags
+[13:32:36] Scryfall /catalog/keyword-abilities status=200 attempt=1/8
+[13:32:36] Scryfall catalog keyword-abilities: 218 entries
+[13:32:36] Scryfall request /catalog/keyword-actions 
+[13:32:36] Scryfall /catalog/keyword-actions status=200 attempt=1/8
+[13:32:36] Scryfall catalog keyword-actions: 73 entries
+[13:32:36] Scryfall request /catalog/ability-words 
+[13:32:36] Scryfall /catalog/ability-words status=200 attempt=1/8
+[13:32:36] Scryfall catalog ability-words: 70 entries
+[13:32:36] Scryfall request /catalog/creature-types 
+[13:32:39] Scryfall /catalog/creature-types status=200 attempt=1/8
+[13:32:39] Scryfall catalog creature-types: 329 entries
+[13:32:39] Loaded 690 keyword/mechanic/type entries from Scryfall catalogs.
+[13:32:39] Loaded 32 color-combination themes.
+[13:32:39] Candidate themes after dedupe/bans: 5843
+[13:32:39] Banned theme count: 42
+[13:32:39] Attempt 1: selected theme: Construct / typal / source: Scryfall creature-types
+[13:32:39] Scryfall request /cards/search q=%28type%3A%22Construct%22+OR+oracle%3A%2F%5CbConstruct%5Cb%2Fi+OR+oracle%3A%2F%5CbConstructs%5Cb%2Fi%29+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:41] Scryfall /cards/search status=200 attempt=1/8
+[13:32:41] Scryfall search count=175 q=(type:"Construct" OR oracle:/\bConstruct\b/i OR oracle:/\bConstructs\b/i) game:paper lang:en
+[13:32:41] Theme pool valid cards: 106
+[13:32:41] Theme pool color counts: W=12 U=12 B=9 R=11 G=5
+[13:32:41] Dominance threshold: 7.2
+[13:32:41] Dominant colors: WUBR
+[13:32:41] Equal-color case: no
+[13:32:41] Multicolor exception: not triggered
+[13:32:41] Final chosen deck colors: BW
+[13:32:41] Scryfall request /cards/search q=%28type%3A%22Construct%22+OR+oracle%3A%2F%5CbConstruct%5Cb%2Fi+OR+oracle%3A%2F%5CbConstructs%5Cb%2Fi%29+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:42] Scryfall /cards/search status=200 attempt=1/8
+[13:32:42] Scryfall search count=175 q=(type:"Construct" OR oracle:/\bConstruct\b/i OR oracle:/\bConstructs\b/i) id<=BW game:paper lang:en
+[13:32:42] On-theme (high EDHREC) card added: Su-Chi Cave Guard / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Walking Atlas / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Scrapyard Recombiner / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Lupine Prototype / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Traxos, Scourge of Kroog / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Hexavus / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] On-theme (high EDHREC) card added: Ancient Stone Idol / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[13:32:42] Scryfall request /cards/search q=%28type%3A%22Construct%22+OR+oracle%3A%2F%5CbConstruct%5Cb%2Fi+OR+oracle%3A%2F%5CbConstructs%5Cb%2Fi%29+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=random&dir=asc
+[13:32:43] Scryfall /cards/search status=200 attempt=1/8
+[13:32:43] Scryfall search count=175 q=(type:"Construct" OR oracle:/\bConstruct\b/i OR oracle:/\bConstructs\b/i) id<=BW game:paper lang:en
+[13:32:43] On-theme (random all-time) card added: Karn, Scion of Urza / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Gemini Engine / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Shardless Outlander / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Triskelion / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Pentavus / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Automatic Librarian / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme (random all-time) card added: Eager Construct / source: Scryfall random across all MTG history / reason: random theme card from full history
+[13:32:43] On-theme cards selected: 14/14 (target 7 high-edhrec + 7 random all-time)
+[13:32:43] Synergy repair needed: Pentavus wants a pentavite you control
+[13:32:43] Scryfall request /cards/search q=%28%28type%3A%22Construct%22+OR+oracle%3A%2F%5CbConstruct%5Cb%2Fi+OR+oracle%3A%2F%5CbConstructs%5Cb%2Fi%29%29+type%3Apentavite+-type%3Aland+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:44] Scryfall /cards/search status=404 attempt=1/8
+[13:32:44] Scryfall search returned no matches for q=((type:"Construct" OR oracle:/\bConstruct\b/i OR oracle:/\bConstructs\b/i)) type:pentavite -type:land id<=BW game:paper lang:en
+[13:32:44] Scryfall request /cards/search q=type%3Apentavite+-type%3Aland+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:44] Scryfall /cards/search status=404 attempt=1/8
+[13:32:44] Scryfall search returned no matches for q=type:pentavite -type:land id<=BW game:paper lang:en
+[13:32:44] Removed Pentavus: its required synergy target could not be guaranteed.
+[13:32:44] Synergy validation passed after 1 repair pass(es).
+[13:32:44] Support archetype: typal (5 tiers)
+[13:32:44] Inferred support needs from selected theme cards: counter support, artifact density, token density, sacrifice support
+[13:32:44] Scryfall request /cards/search q=%28oracle%3A%22%2B1%2F%2B1+counter%22+OR+keyword%3Aproliferate+OR+otag%3Acounters-matter%29+-type%3Aland+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:45] Scryfall /cards/search status=200 attempt=1/8
+[13:32:45] Scryfall search count=175 q=(oracle:"+1/+1 counter" OR keyword:proliferate OR otag:counters-matter) -type:land id<=BW game:paper lang:en
+[13:32:45] Support card added: Wishclaw Talisman / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Hangarback Walker / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Vat of Rebirth / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Woe Strider / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Parting Gust / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Tezzeret, Cruel Captain / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Threefold Thunderhulk / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Sword of Truth and Justice / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Grateful Apparition / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Support card added: Elenda, the Dusk Rose / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[13:32:45] Synergy validation passed after 0 repair pass(es).
+[13:32:45] Final non-land split: theme=13 support=10 creatures=17
+[13:32:45] Average mana value: 4.26
+[13:32:45] Virtual curve entries: 23
+[13:32:45] Final land count: 23. Reason: 15 + average mana value 4.26 * 1.8, clamped to 15-25
+[13:32:45] Pip counts: {"W":4,"U":0,"B":5.05,"R":0,"G":0} snowRequired=false snowMatters=false colorlessNeed=false
+[13:32:45] Basic land allocation: Swamp, Swamp, Swamp, Swamp, Swamp, Swamp, Swamp, Plains, Plains, Plains, Plains, Plains
+[13:32:45] Scryfall request /cards/search q=%21%22Swamp%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
+[13:32:46] Scryfall /cards/search status=200 attempt=1/8
+[13:32:46] Scryfall /cards/search:page status=200 attempt=1/8
+[13:32:46] Scryfall search count=350 q=!"Swamp" include:extras unique:prints lang:en
+[13:32:46] Scryfall request /cards/search q=%21%22Plains%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
+[13:32:46] Scryfall /cards/search status=200 attempt=1/8
+[13:32:47] Scryfall /cards/search:page status=200 attempt=1/8
+[13:32:47] Scryfall search count=350 q=!"Plains" include:extras unique:prints lang:en
+[13:32:47] Random basic-land art set: ZEN
+[13:32:47] Scryfall request /cards/search q=%28type%3Aland+%28otag%3A%22construct%22+OR+oracle%3A%2F%5CbConstruct%5Cb%2Fi+OR+type%3A%22Construct%22%29%29+type%3Aland+-type%3Abasic+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:47] Scryfall /cards/search status=200 attempt=1/8
+[13:32:47] Scryfall search count=2 q=(type:land (otag:"construct" OR oracle:/\bConstruct\b/i OR type:"Construct")) type:land -type:basic id<=BW game:paper lang:en
+[13:32:47] Theme-related nonbasic lands found: 2
+[13:32:47] Scryfall request /cards/search q=type%3Aland+-type%3Abasic+id%3C%3DBW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[13:32:48] Scryfall /cards/search status=200 attempt=1/8
+[13:32:48] Scryfall search count=175 q=type:land -type:basic id<=BW game:paper lang:en
+[13:32:48] In-color fixing non-basics: 9/9
+[13:32:48] Scryfall request /cards/search q=%21%22Hostile+Hostel+%2F%2F+Creeping+Inn%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[13:32:48] Scryfall /cards/search status=200 attempt=1/8
+[13:32:48] Scryfall search count=4 q=!"Hostile Hostel // Creeping Inn" unique:prints game:paper lang:en
+[13:32:48] Alt art rolled for Hostile Hostel // Creeping Inn: PMID 264s
+[13:32:48] Non-basic land allocation: Bojuka Bog, Vault of Champions, Minas Tirith, Shattered Sanctum, Shadowy Backstreet, Orzhov Guildgate, Shineshadow Snarl, Witch Enchanter // Witch-Blessed Meadow, Razorgrass Ambush // Razorgrass Field, Frostwalk Bastion, Hostile Hostel // Creeping Inn
+[13:32:48] Final whole-deck synergy check: all 46 cards have their synergies satisfied.
+[13:32:48] Final deck counts: nonlands=23 lands=23 total=46
 ```
