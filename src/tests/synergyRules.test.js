@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directSynergyIssues, referencesOwnName, copiesFor, isMultiCopyCard, hasTutorTarget, referencedCardNames, typeControlRequirements, countThresholdRequirements, dungeonRequirements } from '../lib/synergyRules.js';
+import { directSynergyIssues, referencesOwnName, copiesFor, isMultiCopyCard, hasTutorTarget, referencedCardNames, typeControlRequirements, countThresholdRequirements, dungeonRequirements, missingNamedReferences, discardSynergyRequirements, deathPayoffRequirements } from '../lib/synergyRules.js';
 
 function card(name, type_line = 'Instant', oracle_text = '', cmc = 2) {
   return { name, type_line, oracle_text, cmc, layout: 'normal', lang: 'en', color_identity: [], oracle_id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-') };
@@ -90,6 +90,52 @@ describe('direct synergy rules', () => {
     expect(countThresholdRequirements(card('X', 'Instant', 'if you control two or more artifacts'))).toHaveLength(0);
     expect(countThresholdRequirements(card('X', 'Instant', 'if you control five or more lands'))).toHaveLength(0);
     expect(countThresholdRequirements(card('X', 'Instant', 'draw three or more cards'))).toHaveLength(0);
+  });
+
+  it('matches named references across punctuation/spacing differences (#47 Urza tron false alarm)', () => {
+    // Card text uses the older "Urza's Power-Plant" templating; the real card present is "Urza's Power Plant".
+    const tower = card('Urza\'s Tower', 'Land — Urza\'s', 'Add {C}. If you control an Urza\'s Mine, an Urza\'s Power-Plant, and an Urza\'s Tower, add {C}{C}{C} instead.');
+    const mine = card('Urza\'s Mine', 'Land — Urza\'s', 'Add {C}.', 0);
+    const powerPlant = card('Urza\'s Power Plant', 'Land — Urza\'s', 'Add {C}.', 0);
+    expect(missingNamedReferences(tower, [tower, mine, powerPlant])).toHaveLength(0);
+    // genuinely missing piece is still reported
+    expect(missingNamedReferences(tower, [tower, mine]).map((n) => n.toLowerCase())).toContain('urza\'s power-plant');
+  });
+
+  it('matches a named reference satisfied by one face of a double-faced card', () => {
+    const ref = card('Caller', 'Creature', 'You may play with a card named Brightclimb Pathway.');
+    const dfc = { name: 'Brightclimb Pathway // Grimclimb Pathway', type_line: 'Land // Land', oracle_text: '', cmc: 0, layout: 'modal_dfc', lang: 'en', color_identity: ['W', 'B'], oracle_id: 'brightclimb', card_faces: [{ name: 'Brightclimb Pathway', type_line: 'Land', oracle_text: '{T}: Add {W}.' }, { name: 'Grimclimb Pathway', type_line: 'Land', oracle_text: '{T}: Add {B}.' }] };
+    expect(missingNamedReferences(ref, [ref, dfc])).toHaveLength(0);
+  });
+
+  it('flags a discard-matters payoff with no forced-discard source (#48 Waste Not)', () => {
+    const wasteNot = card('Waste Not', 'Enchantment', 'Whenever an opponent discards a creature card, create a 2/2 zombie. Whenever an opponent discards a land card, add {B}{B}.');
+    expect(discardSynergyRequirements(wasteNot)).toHaveLength(1);
+    expect(directSynergyIssues([wasteNot]).some((i) => i.type === 'mechanic-presence')).toBe(true);
+    const mindRot = card('Mind Rot', 'Sorcery', 'Target player discards two cards.');
+    expect(directSynergyIssues([wasteNot, mindRot]).some((i) => i.card.name === 'Waste Not')).toBe(false);
+    // a self-contained discard payoff (forces the discard itself) needs no extra support
+    const liliana = card('Liliana', 'Planeswalker', 'Each opponent discards a card. Whenever an opponent discards a card, you draw a card.');
+    expect(discardSynergyRequirements(liliana)).toHaveLength(0);
+  });
+
+  it('flags an own-creature death payoff with no sacrifice outlet (#48 Ogre Slumlord / Elenda)', () => {
+    const slumlord = card('Ogre Slumlord', 'Creature — Ogre', 'Whenever another nontoken creature you control dies, create a 1/1 black Rat creature token.');
+    expect(deathPayoffRequirements(slumlord)).toHaveLength(1);
+    expect(directSynergyIssues([slumlord]).some((i) => i.type === 'mechanic-presence')).toBe(true);
+    const elenda = card('Elenda\'s Hierophant', 'Creature — Vampire Cleric', 'Whenever Elenda\'s Hierophant or another creature you control dies, put a +1/+1 counter on each creature you control.');
+    expect(deathPayoffRequirements(elenda)).toHaveLength(1);
+    // a real sacrifice outlet clears the sac requirement (a vanilla body covers the trivial "creature you control")
+    const altar = card('Phyrexian Altar', 'Artifact', 'Sacrifice a creature: Add one mana of any color.');
+    const bear = card('Grizzly Bears', 'Creature — Bear', '');
+    const sacIssue = (deck) => directSynergyIssues(deck).some((i) => i.card.name === 'Ogre Slumlord' && /sacrifice outlet/.test(i.detail));
+    expect(sacIssue([slumlord, bear])).toBe(true);
+    expect(sacIssue([slumlord, bear, altar])).toBe(false);
+    // an opponent-side death trigger (fed by ordinary removal) is not flagged
+    const harvester = card('Harvester', 'Creature', 'Whenever a creature an opponent controls dies, you gain 1 life.');
+    expect(deathPayoffRequirements(harvester)).toHaveLength(0);
+    // a card that is itself a sac outlet does not demand another
+    expect(deathPayoffRequirements(card('Carrion Feeder', 'Creature — Zombie', 'Sacrifice a creature: Put a +1/+1 counter on Carrion Feeder. Whenever a creature you control dies, you may do nothing.'))).toHaveLength(0);
   });
 
   it('demands a venture source for cards that reward completing a dungeon (#42)', () => {

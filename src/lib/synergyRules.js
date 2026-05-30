@@ -84,9 +84,24 @@ export function copiesFor(card) {
 }
 export function isMultiCopyCard(card) { return copiesFor(card) > 1; }
 
-const nameSatisfied = (ref, cards) => cards.some((c) => { const n = String(c?.name || '').toLowerCase(); const r = ref.toLowerCase(); return n === r || n.includes(r); });
+// Normalise a card name for comparison: lowercase and collapse all punctuation/whitespace to single
+// spaces. This is the same shape as manaBase.js's normName so the final named-reference check matches
+// "Urza's Power-Plant" (older oracle templating) against the real "Urza's Power Plant" already present.
+const normName = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const nameSatisfied = (ref, cards) => {
+  const r = normName(ref);
+  if (!r) return false;
+  return cards.some((c) => {
+    const faces = c?.card_faces?.length ? c.card_faces : [c];
+    return [c?.name, ...faces.map((f) => f?.name)].some((nm) => {
+      const n = normName(nm);
+      return !!n && (n === r || n.includes(r));
+    });
+  });
+};
 export function missingNamedReferences(card, cards) {
-  return referencedCardNames(card).filter((name) => name.toLowerCase() !== String(card?.name || '').toLowerCase() && !nameSatisfied(name, cards));
+  const self = normName(card?.name);
+  return referencedCardNames(card).filter((name) => normName(name) !== self && !nameSatisfied(name, cards));
 }
 
 function mvPredicate(op, value) {
@@ -204,6 +219,53 @@ export function dungeonRequirements(card) {
   }];
 }
 
+// --- soft "gameplay enabler" synergies -------------------------------------------------------
+// Some cards are only live if the deck supplies a gameplay action they never provide themselves:
+// a discard-matters payoff needs someone to make opponents discard; a death/sacrifice payoff needs a
+// repeatable way to make creatures die. These are exactly the "soft requirements" the synergy checker
+// used to miss (Waste Not with no discard, Ogre Slumlord / Elenda's Hierophant with no sac outlet).
+
+// "Whenever an opponent/player discards …" — a payoff that does nothing without a forced-discard source.
+const OPP_DISCARD_PAYOFF_RE = /\bwhenever\s+(?:an?\s+)?(?:opponent|player)s?\s+discard/i;
+// A card that actually forces a discard: "each/target/that opponent|player discards …".
+const FORCES_DISCARD_RE = /\b(?:each|target|that)\s+(?:opponent|player)s?\s+discards?\b/i;
+const forcesOpponentDiscard = (card) => FORCES_DISCARD_RE.test(oracleText(card));
+export function discardSynergyRequirements(card) {
+  const text = oracleText(card);
+  if (!OPP_DISCARD_PAYOFF_RE.test(text)) return [];
+  if (forcesOpponentDiscard(card)) return []; // self-contained: it both forces discard and pays off
+  return [{
+    name: 'a way to make opponents discard',
+    query: '(oracle:"opponent discards" OR oracle:"target player discards" OR oracle:"each player discards" OR oracle:"each opponent discards") -type:land',
+    matches: (c) => forcesOpponentDiscard(c),
+  }];
+}
+
+// A repeatable sacrifice outlet: an activated ability (or rule) that sacrifices a creature on demand.
+const SAC_OUTLET_RE = /\bsacrifice (?:a|an|another) (?:creature|permanent)\b/i;
+const SAC_OUTLET_PAYOFF_RE = /\bwhenever you sacrifice\b/i; // a payoff, not an outlet
+export const isSacrificeOutlet = (card) => SAC_OUTLET_RE.test(oracleText(card)) && !SAC_OUTLET_PAYOFF_RE.test(oracleText(card));
+// A death-matters payoff about *your* creatures dying ("Whenever NAME or another creature you control
+// dies", "Whenever a nontoken creature you control dies"). Combat alone is unreliable, so the deck needs
+// a sacrifice outlet to make creatures die on demand. We only flag controller-side death triggers — an
+// opponent-side "whenever a creature an opponent controls dies" is fed by ordinary removal, not a sac outlet.
+function isOwnCreatureDeathPayoff(card) {
+  return oracleText(card).split(/[.;\n]/).some((clause) => {
+    if (!/\bwhenever\b/i.test(clause) || !/\bcreatures?\b/i.test(clause) || !/\b(?:dies|die)\b/i.test(clause)) return false;
+    if (/\bopponent/i.test(clause)) return false; // their creatures dying — handled by removal, not a sac outlet
+    return /\byou control\b/i.test(clause) || /\b(?:another|nontoken|other)\b/i.test(clause);
+  });
+}
+export function deathPayoffRequirements(card) {
+  if (!isOwnCreatureDeathPayoff(card)) return [];
+  if (isSacrificeOutlet(card)) return []; // it can feed itself
+  return [{
+    name: 'a sacrifice outlet to make creatures die on demand',
+    query: '(oracle:"sacrifice a creature:" OR oracle:"sacrifice another creature" OR oracle:", sacrifice a creature") -type:land',
+    matches: (c) => isSacrificeOutlet(c),
+  }];
+}
+
 export function directSynergyIssues(cards) {
   const issues = [];
   for (const card of cards) {
@@ -220,6 +282,12 @@ export function directSynergyIssues(cards) {
     }
     for (const requirement of dungeonRequirements(card)) {
       if (!cards.some((candidate) => !sameCard(candidate, card) && requirement.matches(candidate))) issues.push({ card, type: 'mechanic-presence', detail: `${card.name} rewards completing a dungeon but nothing ventures`, requirement });
+    }
+    for (const requirement of discardSynergyRequirements(card)) {
+      if (!cards.some((candidate) => !sameCard(candidate, card) && requirement.matches(candidate))) issues.push({ card, type: 'mechanic-presence', detail: `${card.name} rewards opponents discarding but the deck has no forced-discard source`, requirement });
+    }
+    for (const requirement of deathPayoffRequirements(card)) {
+      if (!cards.some((candidate) => !sameCard(candidate, card) && requirement.matches(candidate))) issues.push({ card, type: 'mechanic-presence', detail: `${card.name} wants creatures to die but the deck has no sacrifice outlet`, requirement });
     }
   }
   return issues;
