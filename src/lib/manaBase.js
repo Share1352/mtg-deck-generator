@@ -61,8 +61,15 @@ export function isUsefulFetchland(card, colors) {
 
 export function needsColorless(cards) {
   return cards.some((card) => {
-    const cost = (card.card_faces || [card]).map((f) => f.mana_cost || '').join('');
-    return /\{C\}/.test(cost) || /\{C\}/.test(oracleText(card));
+    const faces = card.card_faces || [card];
+    // A {C} in the mana cost is a real colorless requirement.
+    if (faces.some((f) => /\{C\}/.test(f.mana_cost || ''))) return true;
+    // In oracle text, {C} can be a *cost* we must pay (e.g. "{2}{C}, {T}:") — a real need — or
+    // *production* (e.g. Sol Ring's "Add {C}{C}.") — not a need. Only count cost-side {C}; an "Add … {C}"
+    // clause makes colorless, it does not demand it, so it must not inject Wastes.
+    return oracleText(card)
+      .split('\n')
+      .some((line) => /\{C\}/.test(line) && !/\badd\b[^.]*\{C\}/i.test(line));
   });
 }
 

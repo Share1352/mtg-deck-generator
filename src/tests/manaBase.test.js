@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateBasics, buildManaBase, isUsefulFetchland, selectNonbasicLandsFromPools, splitLandSlots } from '../lib/manaBase.js';
+import { allocateBasics, buildManaBase, isUsefulFetchland, needsColorless, selectNonbasicLandsFromPools, splitLandSlots } from '../lib/manaBase.js';
 import { _resetScryfallCache } from '../lib/scryfallClient.js';
 
 function landCard(name, color_identity = [], oracle_text = 'Add mana.') {
@@ -63,6 +63,16 @@ describe('mana base helpers', () => {
   it('splits lands 50/50 with extra basic', () => {
     expect(splitLandSlots(21)).toEqual({ basics: 11, nonbasics: 10 });
     expect(splitLandSlots(22)).toEqual({ basics: 11, nonbasics: 11 });
+  });
+
+  it('treats {C} in mana cost or activation cost as a colorless need, but not {C} production (#45)', () => {
+    // Sol Ring etc. *produce* colorless ("Add {C}{C}.") — must NOT trigger Wastes injection.
+    expect(needsColorless([{ name: 'Sol Ring', mana_cost: '{1}', oracle_text: '{T}: Add {C}{C}.' }])).toBe(false);
+    expect(needsColorless([{ name: 'Worn Powerstone', mana_cost: '{3}', oracle_text: 'Worn Powerstone enters tapped.\n{T}: Add {C}{C}.' }])).toBe(false);
+    // {C} in the mana cost is a real requirement.
+    expect(needsColorless([{ name: 'Warping Wail', mana_cost: '{1}{C}', oracle_text: 'Choose one —' }])).toBe(true);
+    // {C} as an activation cost (not an "Add" clause) is a real requirement.
+    expect(needsColorless([{ name: 'Endbringer', mana_cost: '{5}', oracle_text: '{C}, {T}: Endbringer deals 1 damage to any target.' }])).toBe(true);
   });
 
   it('allocates basics by pips and snow conversion', () => {

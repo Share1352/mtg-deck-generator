@@ -128,6 +128,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   addFromList(randomList, { section: 'On-theme (random all-time)', source: 'Scryfall random across all MTG history', reason: 'random theme card from full history' }, { until: THEME_TARGET });
   logger?.line(`On-theme cards selected: ${selected.length}/${THEME_TARGET} (target ${HIGH_EDHREC_TARGET} high-edhrec + ${THEME_TARGET - HIGH_EDHREC_TARGET} random all-time)`);
 
+  // --- PHASE B2: satisfy each on-theme card's printed synergies BEFORE the generic support fill (#45) ---
+  // The 40% support package must first guarantee every main-theme card's own synergy (a Battle for a
+  // battle-matters card, an artifact/enchantment for a type-matters card, enough of a counted type, …)
+  // and pick those pieces on-theme where possible — not random goodstuff. Filling synergies before the
+  // generic support package means they claim slots first instead of evicting filler afterwards.
+  await repairSynergies();
+
   // --- PHASE C: smart 40% support package tailored to the theme's archetype ---
   const plan = getSupportPlan(name, category);
   logger?.line(`Support archetype: ${plan.id} (${plan.tiers.length} tiers)`);
@@ -175,6 +182,16 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
 
   if (selected.length < TOTAL) {
     addFromList(randomList, { section: 'On-theme (random all-time)', source: 'post-repair theme backfill', reason: 'replace dropped card' }, { until: TOTAL });
+    // Every printed synergy is now met; if still short, fill on-theme before generic goodstuff (#45):
+    // a tribe theme takes changelings/tribal hardware, a non-tribe theme takes more direct theme support.
+    if (selected.length < TOTAL && category === 'typal') {
+      for (const q of ['type:creature (oracle:changeling OR otag:changeling)', `(${themeQ}) -type:land`]) {
+        if (selected.length >= TOTAL) break;
+        addFromList(await fetchTheme(q, 'edhrec', 80), { section: 'Support', source: `tribal backfill: ${q}`, reason: 'changeling/tribal fill for typal theme' }, { until: TOTAL });
+      }
+    } else if (selected.length < TOTAL) {
+      addFromList(await fetchTheme(`(${themeQ}) -type:land`, 'edhrec', 120), { section: 'Support', source: 'direct theme backfill', reason: 'direct main-theme support fill' }, { until: TOTAL });
+    }
     if (selected.length < TOTAL) addFromList(await fetchTheme('-type:land', 'edhrec', 250), { section: 'Support', source: 'post-repair narrow fallback', reason: 'final on-color fill' }, { until: TOTAL });
   }
 
@@ -264,6 +281,12 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
         const localHit = localPool.find((c) => issue.requirement.matches(c) && canAdd(c));
         if (localHit) { target = localHit; src = `local ${issue.type} for ${issue.card.name}`; }
         if (!target) {
+          // Prefer a piece that also fits the theme (direct/indirect support) over random goodstuff (#45).
+          const themed = await fetchTheme(`(${themeQ}) ${issue.requirement.query}`, 'edhrec', 40);
+          const themedHit = themed.find((c) => issue.requirement.matches(c) && canAdd(c));
+          if (themedHit) { target = themedHit; src = `on-theme ${issue.type} (${issue.requirement.name}) for ${issue.card.name}`; }
+        }
+        if (!target) {
           const fetched = await fetchTheme(issue.requirement.query, 'edhrec', 40);
           const hit = fetched.find((c) => issue.requirement.matches(c) && canAdd(c));
           if (hit) { target = hit; src = `Scryfall ${issue.type} (${issue.requirement.name}) for ${issue.card.name}`; }
@@ -288,9 +311,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     const req = issue.requirement;
     protectedNames.add(lower(issue.card));
     const have = () => selected.filter((c) => req.matches(c)).length;
-    const pool = uniqueByOracle([...localPool, ...await fetchTheme(req.query, 'edhrec', 80)]);
+    // Fill the count with on-theme matches first (local pool + theme-scoped query), then generic matches (#45).
+    const themed = await fetchTheme(`(${themeQ}) ${req.query}`, 'edhrec', 60);
+    const themedFirst = shuffle(uniqueByOracle([...localPool, ...themed]).filter((c) => req.matches(c)), rng);
+    const generic = shuffle(uniqueByOracle(await fetchTheme(req.query, 'edhrec', 80)).filter((c) => req.matches(c)), rng);
+    const pool = uniqueByOracle([...themedFirst, ...generic]);
     let added = 0;
-    for (const cand of shuffle(pool, rng)) {
+    for (const cand of pool) {
       if (have() >= req.count) break;
       if (!req.matches(cand) || !canAdd(cand)) continue;
       if (selected.length >= MAX_NONLANDS) break;
