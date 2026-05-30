@@ -31,6 +31,8 @@ const bannedSets = new Set([
   'acr','tacr','pacr',
   'fin','fic','tfin','tfic','pfin','pfic',
   'rex',
+  // Teenage Mutant Ninja Turtles (Viacom crossover) — every printing/token/promo of the family.
+  'tmt','tmc','ttmt','ttmc','atmt','ftmc','pza','ptmt','ptmc',
 ]);
 const bannedNameFamilies = [
   /Transformers/i,
@@ -43,6 +45,8 @@ const bannedNameFamilies = [
   /Assassin'?s Creed/i,
   /Final Fantasy/i,
   /Jurassic (World|Park)/i,
+  /Teenage Mutant Ninja Turtles/i,
+  /Ninja Turtles/i,
 ];
 const lotrAllowedSets = new Set(['ltr','ltc','tltr','tltc','pltr','pltc']);
 const lotrNameFamilies = [/Lord of the Rings/i, /Middle-earth/i, /Tales of Middle/i];

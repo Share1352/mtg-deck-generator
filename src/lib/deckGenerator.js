@@ -6,6 +6,7 @@ import { selectCardsForTheme } from './cardSelection.js';
 import { buildManaBase } from './manaBase.js';
 import { exportDeck } from './exportDeck.js';
 import { validateDeck } from './validation.js';
+import { finalizeDeckSynergies } from './deckSynergyCheck.js';
 import { ScryfallError } from './scryfallClient.js';
 
 function isHardOutage(error) {
@@ -60,6 +61,8 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
         random: selection.random,
         lands,
       };
+      onProgress(95);
+      await finalizeDeckSynergies(deck, { colors: selection.colors, logger, rng });
       const validation = validateDeck(deck);
       logger.line(`Final deck counts: nonlands=${deck.nonlands.length} lands=${deck.lands.length} total=${deck.nonlands.length + deck.lands.length}`);
       if (!validation.ok) throw new Error(validation.errors.join('; '));

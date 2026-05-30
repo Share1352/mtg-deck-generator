@@ -26,6 +26,9 @@ describe('filters', () => {
     expect(isPlayableMainDeckCard(card({ name: 'Cloud, Ex-SOLDIER', set: 'fin' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Tifa Lockhart', set_name: 'Final Fantasy Commander', set: 'fic' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Velociraptor Pack', set: 'rex', set_name: 'Jurassic World Collection' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Vibrant Cityscape', set: 'tmc', set_name: 'Teenage Mutant Ninja Turtles Eternal', type_line: 'Land' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Donatello, Tech Genius', set: 'tmt', set_name: 'Teenage Mutant Ninja Turtles' }))).toBe(false);
+    expect(isPlayableMainDeckCard(card({ name: 'Turtle by Name', set: 'xxx', set_name: 'Teenage Mutant Ninja Turtles Source Material' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Stranger by Set Name', set: 'xxx', set_name: 'Doctor Who Commander' }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Some Conspiracy', layout: 'normal', type_line: 'Conspiracy', legalities: { commander: 'not_legal' } }))).toBe(false);
     expect(isPlayableMainDeckCard(card({ name: 'Eternal-legal Unfinity Card', set: 'unf', set_type: 'funny', type_line: 'Creature — Dog', legalities: { commander: 'legal' } }))).toBe(true);
