@@ -38,6 +38,14 @@ describe('support profiles', () => {
     expect(tiers.some((t) => /instant\/sorcery|instants and sorceries/i.test(t.label))).toBe(true);
     expect(tiers[0].query).toMatch(/type:instant|type:sorcery|-type:creature/);
   });
+
+  it('infers forced-discard support for discard-matters payoffs (#48 Waste Not)', () => {
+    const tiers = inferSupportTiersFromCards([
+      { name: 'Waste Not', type_line: 'Enchantment', oracle_text: 'Whenever an opponent discards a creature card, create a 2/2 black Zombie creature token.' },
+    ]);
+    expect(tiers.some((t) => /opponent-discard|forced opponent discard/i.test(`${t.inferredLabel} ${t.label}`))).toBe(true);
+    expect(tiers.some((t) => /discards/i.test(t.query))).toBe(true);
+  });
 });
 
 describe('mana base colorless detection', () => {

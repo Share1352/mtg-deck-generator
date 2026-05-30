@@ -109,6 +109,18 @@ const INFERRED_NEEDS = [
       { label: 'fodder for sacrifice theme cards', query: '(oracle:"create" oracle:"creature token" OR oracle:"return" oracle:"from your graveyard to the battlefield") -type:land', creature: null },
     ],
   },
+  {
+    // A discard-matters payoff (Waste Not, Liliana's Caress) is dead without a way to force opponents to
+    // discard. Infer a forced-discard package so these cards become live instead of being cut. (#48)
+    id: 'opponent-discard-density',
+    label: 'opponent-discard enablers',
+    weight: 3,
+    match: (text) => /\bwhenever\s+(?:an?\s+)?(?:opponent|player)s?\s+discard/i.test(text),
+    tiers: [
+      { label: 'forced opponent discard for theme cards', query: '(oracle:"each opponent discards" OR oracle:"target player discards" OR oracle:"that player discards" OR oracle:"each player discards") -type:land', creature: null },
+      { label: 'repeatable discard pressure', query: '(oracle:"discards a card" oracle:"whenever" OR oracle:"discards two cards" OR keyword:"madness") -type:land', creature: null },
+    ],
+  },
 ];
 
 export function inferSupportTiersFromCards(cards, { minScore = 2 } = {}) {
