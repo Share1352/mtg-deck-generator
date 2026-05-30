@@ -10,21 +10,31 @@ const h = React.createElement;
 
 const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 const BASELINE_KEY = 'mtgLastGenMs';
+const LINES_KEY = 'mtgLastGenLines';
 const DEFAULT_BASELINE_MS = 25000;
-function loadBaseline() {
-  try { const v = Number(globalThis.localStorage?.getItem(BASELINE_KEY)); return Number.isFinite(v) && v > 0 ? v : DEFAULT_BASELINE_MS; }
-  catch { return DEFAULT_BASELINE_MS; }
+const DEFAULT_BASELINE_LINES = 60;
+function loadNum(key, fallback) {
+  try { const v = Number(globalThis.localStorage?.getItem(key)); return Number.isFinite(v) && v > 0 ? v : fallback; }
+  catch { return fallback; }
 }
-function saveBaseline(ms) {
-  try { if (Number.isFinite(ms) && ms > 0) globalThis.localStorage?.setItem(BASELINE_KEY, String(Math.round(ms))); } catch {}
+function saveNum(key, value) {
+  try { if (Number.isFinite(value) && value > 0) globalThis.localStorage?.setItem(key, String(Math.round(value))); } catch {}
 }
-// Live ETA: blend the historical run time with the projection from current progress,
-// trusting the live projection more as progress climbs. Keeps the countdown honest
-// even when a single Scryfall call stalls the bar.
-function estimateRemaining(elapsedMs, progress, baselineMs) {
-  if (progress >= 100) return 0;
-  const live = progress > 3 ? elapsedMs * (100 / progress) : baselineMs;
-  const w = Math.min(1, Math.max(0, progress / 100));
+// Completion is measured from the deck builder's own progress — the log lines it actually emits
+// as it does work (theme pick, every card added, synergy repair, mana base, finalize) — compared
+// to how many lines the last successful run produced. This tracks real generation progress instead
+// of the coarse loading-bar percentage, so the ETA reflects how long the wait truly is (#38).
+function completionFraction(lineCount, baselineLines) {
+  const denom = baselineLines > 0 ? baselineLines : DEFAULT_BASELINE_LINES;
+  return Math.min(0.99, Math.max(0.01, lineCount / denom));
+}
+// Live ETA: blend the historical run time with the projection from live completion, trusting the
+// live projection more as the deck nears completion. Keeps the countdown honest even when a single
+// Scryfall call stalls one step.
+function estimateRemaining(elapsedMs, fraction, baselineMs) {
+  if (fraction >= 1) return 0;
+  const live = fraction > 0.03 ? elapsedMs / fraction : baselineMs;
+  const w = Math.min(1, Math.max(0, fraction));
   const total = baselineMs ? (1 - w) * baselineMs + w * live : live;
   return Math.max(0, total - elapsedMs);
 }
@@ -54,12 +64,17 @@ export default function App() {
   const [tick, setTick] = useState(0);
   const autoForgeStarted = useRef(false);
   const startRef = useRef(0);
-  const baselineRef = useRef(loadBaseline());
-  const joke = useMemo(() => LOADING_JOKES[Math.min(LOADING_JOKES.length - 1, Math.floor(progress / 9))], [progress]);
+  const baselineRef = useRef(loadNum(BASELINE_KEY, DEFAULT_BASELINE_MS));
+  const baselineLinesRef = useRef(loadNum(LINES_KEY, DEFAULT_BASELINE_LINES));
+  const lineCountRef = useRef(0);
 
-  const elapsedMs = state === 'loading' ? Math.max(0, nowMs() - startRef.current) : 0;
-  const remainingMs = state === 'loading' ? estimateRemaining(elapsedMs, progress, baselineRef.current) : 0;
   void tick; // re-render driver for the live timer
+  const elapsedMs = state === 'loading' ? Math.max(0, nowMs() - startRef.current) : 0;
+  const fraction = state === 'loading' ? completionFraction(lineCountRef.current, baselineLinesRef.current) : (state === 'done' ? 1 : 0);
+  // The bar tracks real work (log-line completion) but never falls behind the milestone progress.
+  const barProgress = state === 'loading' ? Math.max(progress, Math.round(fraction * 100)) : progress;
+  const remainingMs = state === 'loading' ? estimateRemaining(elapsedMs, fraction, baselineRef.current) : 0;
+  const joke = useMemo(() => LOADING_JOKES[Math.min(LOADING_JOKES.length - 1, Math.floor(barProgress / 9))], [barProgress]);
 
   useEffect(() => {
     if (state !== 'loading') return undefined;
@@ -69,12 +84,14 @@ export default function App() {
 
   async function forge() {
     startRef.current = nowMs();
+    lineCountRef.current = 0;
     setState('loading'); setError(null); setDeck(null); setProgress(1); setLogLines([]); setTick((t) => t + 1);
     const buffer = [];
     let pending = null;
     const flush = () => { pending = null; setLogLines(buffer.slice()); };
     const handleLog = (formatted) => {
       buffer.push(formatted);
+      lineCountRef.current = buffer.length;
       if (pending == null) {
         pending = (typeof requestAnimationFrame === 'function')
           ? requestAnimationFrame(flush)
@@ -87,8 +104,10 @@ export default function App() {
         onLog: handleLog,
       });
       const took = Math.max(0, nowMs() - startRef.current);
-      saveBaseline(took);
+      saveNum(BASELINE_KEY, took);
+      saveNum(LINES_KEY, buffer.length);
       baselineRef.current = took;
+      baselineLinesRef.current = buffer.length;
       setLogLines(buffer.slice());
       setDeck(built);
       setState('done');
@@ -110,7 +129,7 @@ export default function App() {
     'main',
     { className: 'loading-page' },
     h('div', { className: 'loading-card' },
-      h(ProgressBar, { progress, joke, elapsedMs, remainingMs }),
+      h(ProgressBar, { progress: barProgress, joke, elapsedMs, remainingMs }),
     ),
     h(LiveLog, { lines: logLines }),
   );
