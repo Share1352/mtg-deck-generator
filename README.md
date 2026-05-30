@@ -16,10 +16,10 @@ If the report shows a failure or something off, fix that before building on top.
 
 This app **does not store cards offline**. It calls live online card databases for everything:
 
-- **EDHREC** (`https://json.edhrec.com`) — theme/tribe/typal/keyword index pages and high-synergy card lists per theme.
-- **Scryfall** (`https://api.scryfall.com`) — catalog endpoints (`keyword-abilities`, `keyword-actions`, `ability-words`, `creature-types`) for the master mechanic/keyword/type list, Scryfall Oracle Tagger functional tags (`otag:`/`function:`) for 1000+ gameplay themes, plus `/cards/search`, `/cards/random`, and `/cards/named` for every card lookup.
+- **Scryfall** (`https://api.scryfall.com`) — the single live card database. Catalog endpoints (`keyword-abilities`, `keyword-actions`, `ability-words`, `creature-types`) supply the master mechanic/keyword/type list; **Scryfall Oracle Tagger functional tags (`otag:`/`oracletag:`)** are the reliable source for 1000+ gameplay themes and their member cards; `/cards/search`, `/cards/random`, and `/cards/named` cover every card lookup.
+- **EDHREC popularity** — used *only indirectly* through Scryfall's `order=edhrec` sort, which ranks search results by global EDHREC inclusion. The app does **not** fetch `json.edhrec.com`: EDHREC has no public API, no CORS for browser apps, and blocks programmatic access, so live per-theme "high-synergy" lists are not reachable from a static client. `order=edhrec` is a global-popularity proxy, not a theme-specific synergy signal.
 
-If either source is temporarily unavailable, the clients wait and retry with exponential backoff. If they remain unreachable, the app fails with a clear "Online card databases unreachable" message instead of silently substituting fake or cached cards. The app ships exclusion data plus a generated functional Tagger tag index, but never positive card lists.
+If Scryfall is temporarily unavailable, the client waits and retries with exponential backoff. If it remains unreachable, the app fails with a clear "Online card databases unreachable" message instead of silently substituting fake or cached cards. The app ships exclusion data plus a generated functional Tagger tag index, but never positive card lists.
 
 ## Open the hosted app
 
@@ -71,8 +71,8 @@ Use **Copy whole log** after a deck is forged to troubleshoot card filtering, co
 ## Design notes
 
 - First screen is only the `FORGE DECK` button.
-- Theme selection is uniform after merging EDHREC themes and Scryfall keyword/type catalogs; any of MTG's creature types is recognised as a typal theme.
+- Theme selection is uniform after merging Scryfall Oracle Tagger themes and Scryfall keyword/type catalogs; any of MTG's creature types is recognised as a typal theme.
 - Filters reject Commander-only, side-deck, playtest, digital-only, token/object, off-color support, and banned crossover cards while allowing normal Planeswalkers and standalone playable Un-set/acorn cards.
 - Card selection is 60% on-theme (half high-EDHREC, half random all-time) and 40% archetype-aware support, with a creature floor and full synergy/tutor/named-card/type-of-card repair.
 - Mana bases use a 50/50 basic/non-basic split with pip-aware basics; 2+ color decks fix their own colors with ~80% of non-basics; colorless and snow sources are guaranteed when needed; basic art is one random expansion per generation and non-basics have a 30% alternate-art chance.
-- If EDHREC or Scryfall is unreachable the app surfaces the failure honestly — it never fabricates cards.
+- If Scryfall is unreachable the app surfaces the failure honestly — it never fabricates cards.
