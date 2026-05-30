@@ -7,9 +7,9 @@ A one-button Vite + React app that forges a small casual 1v1 Magic: The Gatherin
 This app **does not store cards offline**. It calls live online card databases for everything:
 
 - **EDHREC** (`https://json.edhrec.com`) — theme/tribe/typal/keyword index pages and high-synergy card lists per theme.
-- **Scryfall** (`https://api.scryfall.com`) — catalog endpoints (`keyword-abilities`, `keyword-actions`, `ability-words`, `creature-types`) for the master mechanic/keyword/type list, plus `/cards/search`, `/cards/random`, and `/cards/named` for every card lookup.
+- **Scryfall** (`https://api.scryfall.com`) — catalog endpoints (`keyword-abilities`, `keyword-actions`, `ability-words`, `creature-types`) for the master mechanic/keyword/type list, Scryfall Oracle Tagger functional tags (`otag:`/`function:`) for 1000+ gameplay themes, plus `/cards/search`, `/cards/random`, and `/cards/named` for every card lookup.
 
-If either source is temporarily unavailable, the clients wait and retry with exponential backoff. If they remain unreachable, the app fails with a clear "Online card databases unreachable" message instead of silently substituting fake or cached cards. The only data shipped with the bundle is exclusion data (banned themes, banned card names, crossover set policy) — never positive card lists.
+If either source is temporarily unavailable, the clients wait and retry with exponential backoff. If they remain unreachable, the app fails with a clear "Online card databases unreachable" message instead of silently substituting fake or cached cards. The app ships exclusion data plus a generated functional Tagger tag index, but never positive card lists.
 
 ## Open the hosted app
 
@@ -47,9 +47,9 @@ The repository vendors tiny local package shims under `vendor/` for `vite`, `vit
 
 ## How a deck is built
 
-1. **Theme pool** is assembled at runtime by combining the EDHREC theme/tribe/typal/keyword index pages with Scryfall's keyword and creature-type catalogs. The pool is deduped and the banned-theme list is applied.
+1. **Theme pool** is assembled at runtime by combining Scryfall's keyword/action/ability-word/type catalogs, 1000+ functional Scryfall Oracle Tagger tags, and every color/colorless/five-color combination. Art-only Tagger tags are excluded. The pool is deduped and the banned-theme list is applied.
 2. **One theme is picked uniformly at random** from the merged pool — every theme, even tiny ones, has equal probability.
-3. **Colors are chosen** from the theme's card pool using the dominance rules (60% threshold, multicolor exception, deliberate logged expansion when a pool is too small).
+3. **Colors are chosen** from the theme's card pool using the dominance rules (60% threshold, multicolor exception, deliberate logged expansion when a pool is too small). If the selected theme is a color theme, the deck is locked to that color identity, uses no basic lands, and mono-color themes only admit nonland cards whose mana costs are entirely pips of that color.
 4. The 23 non-land cards are split **60% on-theme / 40% support**:
    - **~14 on-theme** — half are random picks among the theme's high EDHREC-rated cards (Scryfall `order:edhrec`), half are random theme cards drawn from all of MTG history.
    - **~9 support** — chosen by a per-archetype support engine (`supportProfiles.js`) plus the theme-family classifier so the theme actually functions: tribal lords/changelings/kindred hardware for typal themes; enchantress payoffs and resilient creatures for Auras; bodies/payoffs for Equipment, Vehicles and Saddle; defender + toughness-matters payoffs for Walls; spell payoffs, aristocrats, tokens, counters, landfall, graveyard, lifegain, artifacts, and enchantments otherwise.

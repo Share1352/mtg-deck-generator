@@ -1,4 +1,5 @@
 import { BANNED_THEMES, CREATURE_TYPES } from './constants.js';
+import { buildColorThemes } from './colorThemes.js';
 import { choice } from './random.js';
 import { catalog } from './scryfallClient.js';
 
@@ -45,6 +46,22 @@ export async function fetchScryfallThemeCatalogs({ logger } = {}) {
   return out;
 }
 
+export async function fetchScryfallOracleTagThemes({ logger } = {}) {
+  const baseUrl = import.meta.env?.BASE_URL || '/';
+  const response = await fetch(`${baseUrl}data/scryfall-oracle-tags.json`);
+  if (!response.ok) throw new Error(`Scryfall Oracle tag theme data unavailable: ${response.status}`);
+  const payload = await response.json();
+  const tags = Array.isArray(payload?.tags) ? payload.tags : [];
+  logger?.line(`Scryfall Oracle Tagger themes: ${tags.length} functional tags from ${payload?.source || 'bundled index'}`);
+  if (tags.length < 1000) throw new Error(`Scryfall Oracle Tagger theme index is too small (${tags.length}); expected 1000+ functional tags.`);
+  return tags.map((entry) => ({
+    name: entry.name || entry.tag,
+    tag: entry.tag,
+    category: 'tagger',
+    source: 'Scryfall Oracle Tagger',
+  }));
+}
+
 export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
   const bannedSet = new Set(banned.map(themeKey));
   const map = new Map();
@@ -61,6 +78,9 @@ export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
       map.set(key, {
         name,
         category: item.category || categorizeTheme(name),
+        tag: item.tag,
+        colors: item.colors,
+        isColorTheme: item.isColorTheme,
         sources: [item.source],
       });
     }
@@ -77,10 +97,15 @@ export function pickUniformTheme(themes, rng = Math.random) {
 }
 
 export async function getFrontendThemePool({ logger } = {}) {
-  const catalogs = await fetchScryfallThemeCatalogs({ logger });
+  const [catalogs, oracleTags] = await Promise.all([
+    fetchScryfallThemeCatalogs({ logger }),
+    fetchScryfallOracleTagThemes({ logger }),
+  ]);
+  const colorThemes = buildColorThemes();
   logger?.line(`Loaded ${catalogs.length} keyword/mechanic/type entries from Scryfall catalogs.`);
-  if (!catalogs.length) {
+  logger?.line(`Loaded ${colorThemes.length} color-combination themes.`);
+  if (!catalogs.length && !oracleTags.length) {
     throw new Error('Cannot build a theme pool: Scryfall catalog endpoints returned no entries.');
   }
-  return mergeThemeSources(catalogs);
+  return mergeThemeSources([...catalogs, ...oracleTags, ...colorThemes]);
 }

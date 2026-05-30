@@ -3,6 +3,7 @@ import { buildThemeQuery, getHostQuery, getThemeAdjacentQueries } from './themeQ
 import { getThemeFamilyQueries } from './themeFamilies.js';
 import { getSupportPlan, inferSupportTiersFromCards } from './supportProfiles.js';
 import { chooseDeckColors, maybeExpandColors } from './colorEngine.js';
+import { isColorTheme, isStrictMonoColorThemeCard } from './colorThemes.js';
 import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, isOffColorSupportCard, oracleText, typeLine, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, copiesFor } from './synergyRules.js';
 import { shuffle } from './random.js';
@@ -61,12 +62,18 @@ export function isDirectThemeCard(card, theme) {
 export async function selectCardsForTheme(theme, { logger, rng = Math.random } = {}) {
   const name = theme.name || theme;
   const category = theme.category;
+  const colorTheme = isColorTheme(theme);
   const localPool = await themePoolCards(theme, logger);
   if (localPool.length < MIN_DIRECT_THEME_CARDS) throw new Error(`Theme ${name} rejected: only ${localPool.length} direct theme cards found; minimum is ${MIN_DIRECT_THEME_CARDS}.`);
   logger?.line(`Theme pool valid cards: ${localPool.length}`);
 
-  const colorResult = chooseDeckColors(localPool, { rng, logger });
-  const expansion = maybeExpandColors({ chosenColors: colorResult.colors, allCards: localPool, needed: TOTAL, logger });
+  const colorResult = colorTheme
+    ? { colors: [...(theme.colors || [])], counts: {}, threshold: 0, dominant: [...(theme.colors || [])], equal: false, multicolorTriggered: false, forcedColorTheme: true }
+    : chooseDeckColors(localPool, { rng, logger });
+  if (colorTheme) logger?.line(`Color theme selected: ${name}; locked deck color identity to ${colorResult.colors.join('') || 'colorless'} and disabled basic lands.`);
+  const expansion = colorTheme
+    ? { colors: colorResult.colors, expanded: false, available: localPool }
+    : maybeExpandColors({ chosenColors: colorResult.colors, allCards: localPool, needed: TOTAL, logger });
   const colors = expansion.colors;
   const cc = colorClause(colors);
 
@@ -78,7 +85,10 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const deferredRefs = new Set(); // named refs satisfied by the mana base
 
   const canAdd = (card) => isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })
-    && colorIdentityWithin(card, colors) && !isOffColorSupportCard(card, colors) && !names.has(lower(card));
+    && colorIdentityWithin(card, colors)
+    && !isOffColorSupportCard(card, colors)
+    && (!colorTheme || isStrictMonoColorThemeCard(card, colors))
+    && !names.has(lower(card));
 
   const addCard = (card, source, { protect = false, cap = TOTAL } = {}) => {
     if (!canAdd(card)) return 0;

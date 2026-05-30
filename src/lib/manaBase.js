@@ -279,9 +279,9 @@ export function selectNonbasicLandsFromPools({ themeCards = [], randomCards = []
   return uniqueByOracle(selected).slice(0, count);
 }
 
-export async function buildManaBase(nonlands, colors, { theme = '', requiredLands = [], logger, rng = Math.random } = {}) {
+export async function buildManaBase(nonlands, colors, { theme = '', requiredLands = [], logger, rng = Math.random, noBasics = false } = {}) {
   const { lands: landCount, average, virtualEntries, reason } = calculateLandCount(nonlands);
-  const { basics, nonbasics } = splitLandSlots(landCount);
+  const { basics, nonbasics } = noBasics ? { basics: 0, nonbasics: landCount } : splitLandSlots(landCount);
   const { pips, snowRequired } = countManaPips(nonlands);
   const colorlessNeed = needsColorless(nonlands);
   const snowMatters = snowRequired || nonlands.some((c) => /\bsnow\b/i.test(oracleText(c)));
@@ -290,15 +290,15 @@ export async function buildManaBase(nonlands, colors, { theme = '', requiredLand
   logger?.line(`Final land count: ${landCount}. Reason: ${reason}`);
   logger?.line(`Pip counts: ${JSON.stringify(pips)} snowRequired=${snowRequired} snowMatters=${snowMatters} colorlessNeed=${colorlessNeed}`);
 
-  const basicNames = allocateBasics(colors, basics, pips, snowMatters);
+  const basicNames = noBasics ? [] : allocateBasics(colors, basics, pips, snowMatters);
   if (colorlessNeed && colors.length && !basicNames.some((n) => /Wastes/.test(n))) {
     const wastes = snowMatters ? 'Snow-Covered Wastes' : 'Wastes';
     const inject = Math.min(2, basicNames.length - 1);
     for (let i = 0; i < inject; i += 1) basicNames[basicNames.length - 1 - i] = wastes;
     logger?.line(`Injected ${inject}x ${wastes} so colorless {C} costs are always castable.`);
   }
-  logger?.line(`Basic land allocation: ${basicNames.join(', ')}`);
-  const basicCards = await buildBasics(basicNames, rng, logger);
+  logger?.line(noBasics ? 'Basic land allocation: none (strict color theme)' : `Basic land allocation: ${basicNames.join(', ')}`);
+  const basicCards = noBasics ? [] : await buildBasics(basicNames, rng, logger);
 
   let nonbasicCards = await getNonbasics({ colors, theme, count: nonbasics, colorlessNeed, snowNeed: snowMatters, existing: nonlands, logger, rng });
   nonbasicCards = await completeLandSynergies(nonbasicCards, requiredLands, colors, logger);

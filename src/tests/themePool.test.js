@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mergeThemeSources, pickUniformTheme, categorizeTheme } from '../lib/themePool.js';
+import { mergeThemeSources, pickUniformTheme, categorizeTheme, fetchScryfallOracleTagThemes } from '../lib/themePool.js';
+import { buildColorThemes } from '../lib/colorThemes.js';
 import { createRng } from '../lib/random.js';
 
 describe('theme pool', () => {
@@ -33,6 +34,36 @@ describe('theme pool', () => {
     expect(categorizeTheme('Aristocrats')).toBe('theme');
     expect(categorizeTheme('Flying', 'keyword-abilities')).toBe('mechanic');
     expect(categorizeTheme('Werewolf', 'creature-types')).toBe('typal');
+  });
+
+  it('keeps Scryfall Oracle Tagger functional tags separate from art tags', async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        source: 'test',
+        tags: Array.from({ length: 1001 }, (_, i) => ({ tag: `gameplay-tag-${i}`, name: `Gameplay Tag ${i}` })),
+      }),
+    });
+    let themes;
+    try {
+      themes = await fetchScryfallOracleTagThemes();
+    } finally {
+      globalThis.fetch = original;
+    }
+    expect(themes).toHaveLength(1001);
+    expect(themes[0].category).toBe('tagger');
+    expect(themes[0].source).toBe('Scryfall Oracle Tagger');
+  });
+
+  it('adds every color identity combination as pickable themes', () => {
+    const themes = buildColorThemes();
+    expect(themes).toHaveLength(32);
+    expect(themes.map((t) => t.name)).toContain('Colorless');
+    expect(themes.map((t) => t.name)).toContain('Mono-Blue');
+    expect(themes.map((t) => t.name)).toContain('Red/White');
+    expect(themes.map((t) => t.name)).toContain('Blue/Black/Red');
+    expect(themes.map((t) => t.name)).toContain('Five-Color');
   });
 
   it('refuses to pick from an empty pool', () => {

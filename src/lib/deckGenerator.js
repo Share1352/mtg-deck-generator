@@ -4,6 +4,7 @@ import { createRng } from './random.js';
 import { getFrontendThemePool, pickUniformTheme } from './themePool.js';
 import { selectCardsForTheme } from './cardSelection.js';
 import { buildManaBase } from './manaBase.js';
+import { isColorTheme } from './colorThemes.js';
 import { exportDeck } from './exportDeck.js';
 import { validateDeck } from './validation.js';
 import { finalizeDeckSynergies } from './deckSynergyCheck.js';
@@ -48,7 +49,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
       onProgress(25);
       const selection = await selectCardsForTheme(theme, { logger, rng });
       onProgress(75);
-      const lands = await buildManaBase(selection.nonlands, selection.colors, { theme: theme.name, requiredLands: selection.requiredLands, logger, rng });
+      const lands = await buildManaBase(selection.nonlands, selection.colors, { theme: theme.name, requiredLands: selection.requiredLands, noBasics: isColorTheme(theme), logger, rng });
       onProgress(92);
       const deck = {
         appVersion: APP_VERSION,

@@ -104,6 +104,30 @@ describe('mana base helpers', () => {
     expect(new Set(nonbasics.map((c) => c.name)).size).toBe(nonbasics.length);
   });
 
+  it('can build strict color-theme mana bases with no basics', async () => {
+    _resetScryfallCache();
+    const original = globalThis.fetch;
+    const pool = Array.from({ length: 30 }, (_, i) => landCard(`Azorius Nonbasic ${i}`, ['W', 'U'], 'Add {W} or {U}.'));
+    globalThis.fetch = makeMockFetch({ searchLands: pool, randomLands: pool });
+    const nonlands = Array.from({ length: 23 }, (_, i) => ({
+      name: `Spell ${i}`,
+      type_line: 'Creature',
+      mana_cost: '{W}',
+      color_identity: ['W'],
+      oracle_id: `spell-${i}`,
+      lang: 'en',
+    }));
+    let lands;
+    try {
+      lands = await buildManaBase(nonlands, ['W', 'U'], { theme: 'White/Blue', noBasics: true, rng: () => 0.42 });
+    } finally {
+      globalThis.fetch = original;
+    }
+    expect(lands.length).toBeGreaterThanOrEqual(15);
+    expect(lands.every((card) => !/^(Snow-Covered )?(Plains|Island|Swamp|Mountain|Forest|Wastes)$/.test(card.name))).toBe(true);
+    expect(lands.every((card) => (card.color_identity || []).every((c) => ['W', 'U'].includes(c)))).toBe(true);
+  });
+
   it('uses theme-fitting non-basic lands before random compatible lands', () => {
     const picked = selectNonbasicLandsFromPools({
       themeCards: [landCard('Theme Grove', ['G']), landCard('Off-color Theme', ['U'])],

@@ -1,4 +1,5 @@
 import { categorizeTheme, themeKey } from './themePool.js';
+import { isColorTheme, colorThemeQuery } from './colorThemes.js';
 const parasitic = new Set(['enchant','auras','equipment','equip','vehicles','crew','saddle','mount','mutate','ninjutsu','buyback','cipher','spectacle','bloodthirst']);
 const THEME_QUERY_TEMPLATES = {
   mechanicSynonyms: [
@@ -66,6 +67,12 @@ function pluralizeTypal(name) {
   return `${n}s`;
 }
 export function buildThemeQuery(theme, { creature = null } = {}) {
+  if (isColorTheme(theme)) {
+    let q = colorThemeQuery(theme);
+    if (creature === true) q += ' type:creature';
+    if (creature === false) q += ' -type:creature';
+    return q;
+  }
   const name = typeof theme === 'string' ? theme : theme?.name;
   const category = typeof theme === 'string' ? categorizeTheme(name) : (theme?.category || categorizeTheme(name, theme?.category || ''));
   const key = themeKey(name);
@@ -81,6 +88,7 @@ export function buildThemeQuery(theme, { creature = null } = {}) {
   else if (key === 'equipment' || key === 'equip') q = '(type:equipment OR keyword:equip OR otag:equipment OR (type:creature (oracle:/\bequip(?:ment|ped)?\b/i OR oracle:/\battach\b/i OR oracle:/\bmodified\b/i)))';
   else if (key === 'vehicles' || key === 'crew') q = '(type:vehicle OR keyword:crew OR otag:vehicles)';
   else if (key === 'enchant') q = '(type:enchantment OR keyword:enchant OR otag:enchantress)';
+  else if (theme?.category === 'tagger' && theme?.tag) q = `otag:"${theme.tag}"`;
   else q = `(keyword:"${name}" OR otag:"${key}" OR ${exactOracleQuery(name)})`;
   if (creature === true) q += ' type:creature';
   if (creature === false) q += ' -type:creature';
