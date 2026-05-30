@@ -1,8 +1,10 @@
 import { isBasicLand, isLand, isPlayableMainDeckCard, sameCard } from './filters.js';
 import { isMultiCopyCard } from './synergyRules.js';
+import { BASE_NONLANDS, MAX_NONLANDS } from './constants.js';
 export function validateDeck(deck) {
   const errors = [];
-  if (deck.nonlands.length !== 23) errors.push(`Expected 23 non-land cards, got ${deck.nonlands.length}`);
+  // Usually exactly 23; the synergy engine may grow it up to MAX_NONLANDS in rare cases (#41).
+  if (deck.nonlands.length < BASE_NONLANDS || deck.nonlands.length > MAX_NONLANDS) errors.push(`Expected ${BASE_NONLANDS}-${MAX_NONLANDS} non-land cards, got ${deck.nonlands.length}`);
   if (deck.lands.length < 15 || deck.lands.length > 25) errors.push(`Expected 15-25 lands, got ${deck.lands.length}`);
   if (deck.nonlands.some(isLand)) errors.push('Non-land section contains a land');
   if (deck.nonlands.some((c) => !isPlayableMainDeckCard(c, { allowLands: false }))) errors.push('Non-land section contains an invalid card');

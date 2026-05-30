@@ -7,6 +7,7 @@ import { isColorTheme, isStrictMonoColorThemeCard } from './colorThemes.js';
 import { colorIdentityWithin, isCreature, isLand, isPlayableMainDeckCard, isOffColorSupportCard, oracleText, typeLine, uniqueByOracle, sameCard } from './filters.js';
 import { directSynergyIssues, copiesFor } from './synergyRules.js';
 import { shuffle } from './random.js';
+import { MAX_NONLANDS } from './constants.js';
 
 const TOTAL = 23;
 const THEME_TARGET = Math.round(TOTAL * 0.6); // 14 on-theme
@@ -181,11 +182,13 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const remaining = liveIssues();
   if (remaining.length) logger?.line(`Direct synergy issues remaining (non-fatal): ${remaining.map((i) => i.detail).join('; ')}`);
 
-  const themeCards = selected.filter((c) => String(sources.get(c.name)?.section || '').startsWith('On-theme'));
-  const supportCards = selected.filter((c) => !String(sources.get(c.name)?.section || '').startsWith('On-theme'));
-  logger?.line(`Final non-land split: theme=${themeCards.length} support=${supportCards.length} creatures=${selected.filter(isCreature).length}`);
+  const nonlands = selected.slice(0, MAX_NONLANDS);
+  if (nonlands.length > TOTAL) logger?.line(`Exceptional deck size: ${nonlands.length} non-land cards (usual ${TOTAL}) — synergy chains required extra cards (#41).`);
+  const themeCards = nonlands.filter((c) => String(sources.get(c.name)?.section || '').startsWith('On-theme'));
+  const supportCards = nonlands.filter((c) => !String(sources.get(c.name)?.section || '').startsWith('On-theme'));
+  logger?.line(`Final non-land split: theme=${themeCards.length} support=${supportCards.length} creatures=${nonlands.filter(isCreature).length}`);
   if (requiredLandCards.length) logger?.line(`Land dependencies passed to mana base: ${requiredLandCards.map((c) => c.name).join(', ')}`);
-  return { nonlands: selected.slice(0, TOTAL), themeCards, supportCards, core: themeCards, random: supportCards, colors, colorResult, sources, requiredLands: requiredLandCards };
+  return { nonlands, themeCards, supportCards, core: themeCards, random: supportCards, colors, colorResult, sources, requiredLands: requiredLandCards };
 
   // ---- helpers (hoisted) ----
   function thresholdKey(issue) { return `${lower(issue.card)}|${issue.requirement?.type}|${issue.requirement?.count}`; }
@@ -267,9 +270,12 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
         }
       }
       if (target) {
-        if (selected.length >= TOTAL && !makeRoom()) { dropCard(issue.card); continue; }
+        // Prefer to keep the usual size by evicting droppable filler; if everything left is
+        // synergy-critical, grow the deck (#41) rather than dropping a needed card.
+        if (selected.length >= TOTAL && selected.length < MAX_NONLANDS) makeRoom();
+        if (selected.length >= MAX_NONLANDS) { dropCard(issue.card); continue; }
         protectedNames.add(lower(issue.card));
-        if (!addCard(target, { section: 'Support', source: 'synergy repair', reason: src }, { protect: true })) dropCard(issue.card);
+        if (!addCard(target, { section: 'Support', source: 'synergy repair', reason: src }, { protect: true, cap: MAX_NONLANDS })) dropCard(issue.card);
       } else {
         dropCard(issue.card);
       }
@@ -287,8 +293,10 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     for (const cand of shuffle(pool, rng)) {
       if (have() >= req.count) break;
       if (!req.matches(cand) || !canAdd(cand)) continue;
-      if (selected.length >= TOTAL && !makeRoom({ avoidCreatures: true })) break;
-      if (addCard(cand, { section: 'Support', source: 'synergy repair', reason: `count threshold: ${req.name} for ${issue.card.name}` }, { protect: true })) added += 1;
+      if (selected.length >= MAX_NONLANDS) break;
+      // evict droppable filler to stay near the usual size; grow the deck only if nothing is droppable (#41)
+      if (selected.length >= TOTAL) makeRoom({ avoidCreatures: true });
+      if (addCard(cand, { section: 'Support', source: 'synergy repair', reason: `count threshold: ${req.name} for ${issue.card.name}` }, { protect: true, cap: MAX_NONLANDS })) added += 1;
     }
     if (have() < req.count) {
       exhaustedThresholds.add(thresholdKey(issue)); // stop re-attempting; non-fatal (logged)

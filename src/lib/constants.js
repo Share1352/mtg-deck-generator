@@ -1,4 +1,8 @@
 export const APP_VERSION = '2.0.0';
+// Usual non-land count is 23. In exceptional cases the synergy engine may grow the deck up to
+// MAX_NONLANDS when every remaining card is synergy-critical and a chain still needs more (#41).
+export const BASE_NONLANDS = 23;
+export const MAX_NONLANDS = 40;
 export const COLORS = ['W', 'U', 'B', 'R', 'G'];
 export const COLOR_NAMES = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
 export const BASIC_BY_COLOR = { W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest', C: 'Wastes' };
