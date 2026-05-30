@@ -111,9 +111,16 @@ export function pickTheme(themes, rng = Math.random, { colorProbability = COLOR_
 }
 
 export async function getFrontendThemePool({ logger } = {}) {
+  // Catalogs come from Scryfall and ARE the reachability signal: if they fail, Scryfall is genuinely
+  // down and generation must abort. The Oracle Tagger index is a *bundled static enrichment file* on our
+  // own Pages site; a transient 404/cache-miss there must NOT masquerade as "Scryfall unreachable" and
+  // kill an otherwise-buildable deck. Degrade gracefully — log a warning and continue without tagger themes.
   const [catalogs, oracleTags] = await Promise.all([
     fetchScryfallThemeCatalogs({ logger }),
-    fetchScryfallOracleTagThemes({ logger }),
+    fetchScryfallOracleTagThemes({ logger }).catch((error) => {
+      logger?.line(`WARNING Oracle Tagger themes unavailable, continuing with catalog + color themes only: ${error.message}`);
+      return [];
+    }),
   ]);
   const colorThemes = buildColorThemes();
   logger?.line(`Loaded ${catalogs.length} keyword/mechanic/type entries from Scryfall catalogs.`);
