@@ -623,6 +623,20 @@ The older “add specifically named dependency cards from rules text” requirem
 
 ## 12. EDHREC core selection: 12 cards
 
+> **Implementation status (current reality).** This section is the *original aspirational spec* and
+> does not match shipped behaviour. There is **no live EDHREC integration**: `json.edhrec.com` has no
+> public API, sends no CORS headers for browser apps, and blocks programmatic/datacenter access
+> (verified 403 across every path variant), so a static client cannot reach per-theme high-synergy
+> lists. No `edhrecClient.js`, `edhrec-synergy-cache.json`, or build-time EDHREC scraper exists.
+>
+> What actually happens: the on-theme "high-EDHREC" half is sourced from Scryfall search with
+> `order=edhrec` (a **global-popularity proxy**, explicitly *not* theme-specific synergy as §12.1
+> warns against). The **reliable, guaranteed functional-theme source is the Scryfall Oracle Tagger**
+> via `otag:`/`oracletag:` queries (official, CORS-enabled API) — see `src/lib/themeQueries.js` and
+> `scripts/build-scryfall-oracle-tags.mjs`. Build-time EDHREC caching was evaluated and rejected as
+> not guaranteed and contrary to the app's online-only, no-offline-cache design. Treat the rest of
+> this section as a wishlist, not a description of the code.
+
 ### 12.1 Must use EDHREC high-synergy data
 
 The first 12 cards must come from the theme’s EDHREC high-synergy / most-synergistic card list whenever available.

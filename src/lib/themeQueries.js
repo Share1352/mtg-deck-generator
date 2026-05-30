@@ -88,7 +88,9 @@ export function buildThemeQuery(theme, { creature = null } = {}) {
   else if (key === 'equipment' || key === 'equip') q = '(type:equipment OR keyword:equip OR otag:equipment OR (type:creature (oracle:/\bequip(?:ment|ped)?\b/i OR oracle:/\battach\b/i OR oracle:/\bmodified\b/i)))';
   else if (key === 'vehicles' || key === 'crew') q = '(type:vehicle OR keyword:crew OR otag:vehicles)';
   else if (key === 'enchant') q = '(type:enchantment OR keyword:enchant OR otag:enchantress)';
-  else if (theme?.category === 'tagger' && theme?.tag) q = `otag:"${theme.tag}"`;
+  // Tagger themes carry a verified Scryfall slug, but a tag can resolve to zero current cards.
+  // OR in an oracle-text fallback so a dead tag degrades to a text search instead of an empty pool.
+  else if (theme?.category === 'tagger' && theme?.tag) q = `(otag:"${theme.tag}" OR ${exactOracleQuery(name)})`;
   else q = `(keyword:"${name}" OR otag:"${key}" OR ${exactOracleQuery(name)})`;
   if (creature === true) q += ' type:creature';
   if (creature === false) q += ' -type:creature';
