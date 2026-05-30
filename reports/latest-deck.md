@@ -6,186 +6,231 @@
 
 | Field | Value |
 | --- | --- |
-| Status | OK ✅ |
-| Generated | 2026-05-30T19:39:14.401Z |
-| Commit | `7bdbc5de0df0d3976ce26800fd57ef189bd99a6d` |
-| Theme | Tribal Spirit |
-| Colors | GUW |
-| Counts | nonlands=23 lands=21 total=44 |
-| Seed | 1780169954401 |
-| CI run | https://github.com/Share1352/mtg-deck-generator/actions/runs/26693059315 |
+| Status | FAILED ❌ |
+| Generated | 2026-05-30T20:10:40.329Z |
+| Commit | `50c55661e0eeaa9a79a8e47a592ab2b9583b9d7f` |
+| Theme | n/a |
+| Colors | n/a |
+| Counts | n/a |
+| Seed | 1780171840329 |
+| CI run | https://github.com/Share1352/mtg-deck-generator/actions/runs/26693737623 |
+
+**Error:** `Online card database is unreachable while building Lifelink Counter. The deck generator only works while Scryfall is reachable. Scryfall transient 429 for /cards/search`
 
 ## Deck list
 
 ```
-1 Spectral Arcanist
-1 Sire of the Storm
-1 Apothecary Geist
-1 Unchecked Growth
-1 Mausoleum Wanderer
-1 Briarknit Kami
-1 Tallowisp
-1 Elder Pine of Jukai
-1 Innocence Kami
-1 Haru-Onna
-1 Breath of the Sleepless
-1 Supernatural Rescue
-1 Orbweaver Kumo
-1 Hallowed Haunting
-1 Katilda, Dawnhart Martyr // Katilda's Rising Dawn
-1 Spirit Bonds
-1 Tocasia's Welcome
-1 Authority of the Consuls
-1 Kodama's Reach
-1 Opt
-1 Three Visits
-1 Reprieve
-1 Dramatic Reversal
-1 Seat of the Synod
-1 Port Town
-1 Castle Garenbrig
-1 Ancient Den
-1 Branchloft Pathway // Boulderloft Pathway
-1 Savannah
-1 Thornwood Falls
-1 Emeria, the Sky Ruin
-1 Accursed Duneyard
-1 Karn's Bastion
-1 Forest (SHM) 299
-1 Forest (SHM) 300
-1 Forest (SHM) 301
-3 Island (SHM) 286
-2 Plains (SHM) 284
-2 Plains (SHM) 285
-1 Plains (SHM) 283
+(no deck produced — see log below)
 ```
 
 ## Full generation log
 
 ```
-[19:39:14] START v2.0.0 seed=1780169954401
-[19:39:14] Scryfall request /catalog/keyword-abilities 
-[19:39:14] Scryfall Oracle Tagger themes: 5238 functional tags from https://scryfall.com/docs/tagger-tags
-[19:39:15] Scryfall /catalog/keyword-abilities status=200 attempt=1/8
-[19:39:16] Scryfall catalog keyword-abilities: 218 entries
-[19:39:16] Scryfall request /catalog/keyword-actions 
-[19:39:16] Scryfall /catalog/keyword-actions status=200 attempt=1/8
-[19:39:16] Scryfall catalog keyword-actions: 73 entries
-[19:39:16] Scryfall request /catalog/ability-words 
-[19:39:18] Scryfall /catalog/ability-words status=200 attempt=1/8
-[19:39:18] Scryfall catalog ability-words: 70 entries
-[19:39:18] Scryfall request /catalog/creature-types 
-[19:39:18] Scryfall /catalog/creature-types status=200 attempt=1/8
-[19:39:18] Scryfall catalog creature-types: 329 entries
-[19:39:18] Loaded 690 keyword/mechanic/type entries from Scryfall catalogs.
-[19:39:18] Loaded 32 color-combination themes.
-[19:39:18] Candidate themes after dedupe/bans: 5843
-[19:39:18] Banned theme count: 42
-[19:39:18] Attempt 1: selected theme: Tribal Spirit / tagger / source: Scryfall Oracle Tagger
-[19:39:18] Scryfall request /cards/search q=%28otag%3A%22tribal-spirit%22+OR+oracle%3A%2F%5CbTribal+Spirit%5Cb%2Fi%29+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:19] Scryfall /cards/search status=200 attempt=1/8
-[19:39:19] Scryfall search count=128 q=(otag:"tribal-spirit" OR oracle:/\bTribal Spirit\b/i) game:paper lang:en
-[19:39:19] Theme pool valid cards: 116
-[19:39:19] Theme pool color counts: W=37 U=26 B=20 R=17 G=27
-[19:39:19] Dominance threshold: 22.2
-[19:39:19] Dominant colors: WUG
-[19:39:19] Equal-color case: no
-[19:39:19] Multicolor exception: not triggered
-[19:39:19] Final chosen deck colors: GUW
-[19:39:19] Scryfall request /cards/search q=%28otag%3A%22tribal-spirit%22+OR+oracle%3A%2F%5CbTribal+Spirit%5Cb%2Fi%29+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:20] Scryfall /cards/search status=200 attempt=1/8
-[19:39:20] Scryfall search count=90 q=(otag:"tribal-spirit" OR oracle:/\bTribal Spirit\b/i) id<=GUW game:paper lang:en
-[19:39:20] On-theme (high EDHREC) card added: Spectral Arcanist / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Sire of the Storm / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Apothecary Geist / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Unchecked Growth / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Mausoleum Wanderer / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Briarknit Kami / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] On-theme (high EDHREC) card added: Tallowisp / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
-[19:39:20] Scryfall request /cards/search q=%28otag%3A%22tribal-spirit%22+OR+oracle%3A%2F%5CbTribal+Spirit%5Cb%2Fi%29+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=random&dir=asc
-[19:39:22] Scryfall /cards/search status=200 attempt=1/8
-[19:39:22] Scryfall search count=90 q=(otag:"tribal-spirit" OR oracle:/\bTribal Spirit\b/i) id<=GUW game:paper lang:en
-[19:39:22] On-theme (random all-time) card added: Elder Pine of Jukai / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Innocence Kami / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Haru-Onna / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Breath of the Sleepless / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Supernatural Rescue / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Orbweaver Kumo / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme (random all-time) card added: Hallowed Haunting / source: Scryfall random across all MTG history / reason: random theme card from full history
-[19:39:22] On-theme cards selected: 14/14 (target 7 high-edhrec + 7 random all-time)
-[19:39:22] Synergy repair needed: Hallowed Haunting needs 7+ enchantments (have 3)
-[19:39:22] Scryfall request /cards/search q=%28%28otag%3A%22tribal-spirit%22+OR+oracle%3A%2F%5CbTribal+Spirit%5Cb%2Fi%29%29+type%3Aenchantment+-type%3Aland+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:24] Scryfall /cards/search status=200 attempt=1/8
-[19:39:24] Scryfall search count=5 q=((otag:"tribal-spirit" OR oracle:/\bTribal Spirit\b/i)) type:enchantment -type:land id<=GUW game:paper lang:en
-[19:39:24] Scryfall request /cards/search q=type%3Aenchantment+-type%3Aland+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:26] Scryfall /cards/search status=200 attempt=1/8
-[19:39:26] Scryfall search count=175 q=type:enchantment -type:land id<=GUW game:paper lang:en
-[19:39:26] Support card added: Katilda, Dawnhart Martyr // Katilda's Rising Dawn / source: synergy repair / reason: count threshold: 7+ enchantments for Hallowed Haunting
-[19:39:26] Support card added: Spirit Bonds / source: synergy repair / reason: count threshold: 7+ enchantments for Hallowed Haunting
-[19:39:26] Support card added: Tocasia's Welcome / source: synergy repair / reason: count threshold: 7+ enchantments for Hallowed Haunting
-[19:39:26] Support card added: Authority of the Consuls / source: synergy repair / reason: count threshold: 7+ enchantments for Hallowed Haunting
-[19:39:26] Synergy validation passed after 1 repair pass(es).
-[19:39:26] Support archetype: keyword (3 tiers)
-[19:39:26] Inferred support needs from selected theme cards: instant/sorcery density, graveyard fuel, token density, counter support, sacrifice support
-[19:39:26] Scryfall request /cards/search q=%28type%3Ainstant+OR+type%3Asorcery%29+cmc%3C%3D3+-type%3Aland+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:28] Scryfall /cards/search status=200 attempt=1/8
-[19:39:28] Scryfall search count=175 q=(type:instant OR type:sorcery) cmc<=3 -type:land id<=GUW game:paper lang:en
-[19:39:28] Support card added: Kodama's Reach / source: inferred need: cheap instants and sorceries for theme cards / reason: instant/sorcery density support inferred from selected theme cards
-[19:39:28] Support card added: Opt / source: inferred need: cheap instants and sorceries for theme cards / reason: instant/sorcery density support inferred from selected theme cards
-[19:39:28] Support card added: Three Visits / source: inferred need: cheap instants and sorceries for theme cards / reason: instant/sorcery density support inferred from selected theme cards
-[19:39:28] Support card added: Reprieve / source: inferred need: cheap instants and sorceries for theme cards / reason: instant/sorcery density support inferred from selected theme cards
-[19:39:28] Support card added: Dramatic Reversal / source: inferred need: cheap instants and sorceries for theme cards / reason: instant/sorcery density support inferred from selected theme cards
-[19:39:28] Synergy validation passed after 0 repair pass(es).
-[19:39:28] Final non-land split: theme=14 support=9 creatures=11
-[19:39:28] Average mana value: 3.28
-[19:39:28] Virtual curve entries: 23
-[19:39:28] Final land count: 21. Reason: 15 + average mana value 3.28 * 1.8, clamped to 15-25
-[19:39:28] Pip counts: {"W":14.749999999999998,"U":7,"B":0,"R":0,"G":9} snowRequired=false snowMatters=false colorlessNeed=false
-[19:39:28] Basic land allocation: Forest, Forest, Forest, Island, Island, Island, Plains, Plains, Plains, Plains, Plains
-[19:39:28] Scryfall request /cards/search q=%21%22Forest%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:33] Scryfall /cards/search status=200 attempt=1/8
-[19:39:39] Scryfall /cards/search:page status=200 attempt=1/8
-[19:39:39] Scryfall search count=350 q=!"Forest" include:extras unique:prints lang:en
-[19:39:39] Scryfall request /cards/search q=%21%22Island%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:39] Scryfall /cards/search status=200 attempt=1/8
-[19:39:39] Scryfall /cards/search:page status=200 attempt=1/8
-[19:39:39] Scryfall search count=350 q=!"Island" include:extras unique:prints lang:en
-[19:39:39] Scryfall request /cards/search q=%21%22Plains%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:39] Scryfall /cards/search status=200 attempt=1/8
-[19:39:39] Scryfall /cards/search:page status=200 attempt=1/8
-[19:39:39] Scryfall search count=350 q=!"Plains" include:extras unique:prints lang:en
-[19:39:39] Random basic-land art set: SHM
-[19:39:39] Scryfall request /cards/search q=%28type%3Aland+%28otag%3A%22tribal+spirit%22+OR+oracle%3A%2F%5CbTribal+Spirit%5Cb%2Fi+OR+type%3A%22Tribal+Spirit%22%29%29+type%3Aland+-type%3Abasic+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:43] Scryfall /cards/search status=200 attempt=1/8
-[19:39:43] Scryfall search count=1 q=(type:land (otag:"tribal spirit" OR oracle:/\bTribal Spirit\b/i OR type:"Tribal Spirit")) type:land -type:basic id<=GUW game:paper lang:en
-[19:39:43] Theme-related nonbasic lands found: 1
-[19:39:43] Scryfall request /cards/search q=type%3Aland+-type%3Abasic+id%3C%3DGUW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
-[19:39:44] Scryfall /cards/search status=200 attempt=1/8
-[19:39:44] Scryfall search count=175 q=type:land -type:basic id<=GUW game:paper lang:en
-[19:39:44] In-color fixing non-basics: 8/8
-[19:39:44] Scryfall cache hit /cards/search
-[19:39:44] Scryfall search count=175 q=type:land -type:basic id<=GUW game:paper lang:en
-[19:39:44] Scryfall request /cards/search q=%21%22Castle+Garenbrig%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:44] Scryfall /cards/search status=200 attempt=1/8
-[19:39:44] Scryfall search count=5 q=!"Castle Garenbrig" unique:prints game:paper lang:en
-[19:39:44] Alt art rolled for Castle Garenbrig: PLST ELD-240
-[19:39:44] Scryfall request /cards/search q=%21%22Savannah%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:45] Scryfall /cards/search status=200 attempt=1/8
-[19:39:45] Scryfall search count=5 q=!"Savannah" unique:prints game:paper lang:en
-[19:39:45] Alt art rolled for Savannah: LEB 281
-[19:39:45] Scryfall request /cards/search q=%21%22Emeria%2C+the+Sky+Ruin%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:45] Scryfall /cards/search status=200 attempt=1/8
-[19:39:45] Scryfall search count=5 q=!"Emeria, the Sky Ruin" unique:prints game:paper lang:en
-[19:39:45] Alt art rolled for Emeria, the Sky Ruin: C14 293
-[19:39:45] Scryfall request /cards/search q=%21%22Accursed+Duneyard%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:45] Scryfall /cards/search status=200 attempt=1/8
-[19:39:45] Scryfall search count=2 q=!"Accursed Duneyard" unique:prints game:paper lang:en
-[19:39:45] Alt art rolled for Accursed Duneyard: DRC 36
-[19:39:45] Scryfall request /cards/search q=%21%22Karn%27s+Bastion%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
-[19:39:45] Scryfall /cards/search status=200 attempt=1/8
-[19:39:45] Scryfall search count=12 q=!"Karn's Bastion" unique:prints game:paper lang:en
-[19:39:45] Alt art rolled for Karn's Bastion: SLD 1751
-[19:39:45] Non-basic land allocation: Seat of the Synod, Port Town, Castle Garenbrig, Ancient Den, Branchloft Pathway // Boulderloft Pathway, Savannah, Thornwood Falls, Emeria, the Sky Ruin, Accursed Duneyard, Karn's Bastion
-[19:39:45] Final whole-deck synergy check: all 44 cards have their synergies satisfied.
-[19:39:45] Final deck counts: nonlands=23 lands=21 total=44
+[20:10:40] START v2.0.0 seed=1780171840329
+[20:10:40] Scryfall request /catalog/keyword-abilities 
+[20:10:40] Scryfall Oracle Tagger themes: 5238 functional tags from https://scryfall.com/docs/tagger-tags
+[20:10:40] Scryfall /catalog/keyword-abilities status=200 attempt=1/8
+[20:10:40] Scryfall catalog keyword-abilities: 218 entries
+[20:10:40] Scryfall request /catalog/keyword-actions 
+[20:10:40] Scryfall /catalog/keyword-actions status=200 attempt=1/8
+[20:10:40] Scryfall catalog keyword-actions: 73 entries
+[20:10:40] Scryfall request /catalog/ability-words 
+[20:10:40] Scryfall /catalog/ability-words status=200 attempt=1/8
+[20:10:40] Scryfall catalog ability-words: 70 entries
+[20:10:40] Scryfall request /catalog/creature-types 
+[20:10:40] Scryfall /catalog/creature-types status=200 attempt=1/8
+[20:10:40] Scryfall catalog creature-types: 329 entries
+[20:10:40] Loaded 690 keyword/mechanic/type entries from Scryfall catalogs.
+[20:10:40] Loaded 32 color-combination themes.
+[20:10:40] Candidate themes after dedupe/bans: 5843
+[20:10:40] Banned theme count: 42
+[20:10:40] Attempt 1: selected theme: Five-Color / color / source: Generated color identity themes
+[20:10:40] Scryfall request /cards/search q=id%3C%3DWUBRG+-type%3Aland+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:42] Scryfall /cards/search status=200 attempt=1/8
+[20:10:42] Scryfall search count=175 q=id<=WUBRG -type:land game:paper lang:en
+[20:10:42] Theme pool valid cards: 100
+[20:10:42] Color theme selected: Five-Color; locked deck color identity to WUBRG and disabled basic lands.
+[20:10:42] Scryfall request /cards/search q=id%3C%3DWUBRG+-type%3Aland+id%3C%3DWUBRG+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:45] Scryfall /cards/search status=200 attempt=1/8
+[20:10:45] Scryfall search count=175 q=id<=WUBRG -type:land id<=WUBRG game:paper lang:en
+[20:10:45] On-theme (high EDHREC) card added: Mana Drain / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: Brainstorm / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: Faithless Looting / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: The One Ring / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: Swiftfoot Boots / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: Wild Growth / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] On-theme (high EDHREC) card added: Reanimate / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:45] Scryfall request /cards/search q=id%3C%3DWUBRG+-type%3Aland+id%3C%3DWUBRG+game%3Apaper+lang%3Aen&unique=cards&order=random&dir=asc
+[20:10:47] Scryfall /cards/search status=200 attempt=1/8
+[20:10:47] Scryfall search count=175 q=id<=WUBRG -type:land id<=WUBRG game:paper lang:en
+[20:10:47] On-theme (random all-time) card added: Abiding Grace / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: Eternal Witness / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: _____ / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: Abstruse Interference / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: Assassin's Trophy / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: Aberrant Manawurm / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme (random all-time) card added: Abomination / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:47] On-theme cards selected: 14/14 (target 7 high-edhrec + 7 random all-time)
+[20:10:47] Synergy validation passed after 0 repair pass(es).
+[20:10:47] Support archetype: keyword (3 tiers)
+[20:10:47] Inferred support needs from selected theme cards: graveyard fuel, instant/sorcery density, counter support
+[20:10:47] Scryfall request /cards/search q=%28otag%3Aself-mill+OR+oracle%3A%22mill%22+OR+oracle%3A%22discard+a+card%22+OR+oracle%3A%22discard+your+hand%22%29+-type%3Aland+id%3C%3DWUBRG+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:48] Scryfall /cards/search status=200 attempt=1/8
+[20:10:48] Scryfall search count=175 q=(otag:self-mill OR oracle:"mill" OR oracle:"discard a card" OR oracle:"discard your hand") -type:land id<=WUBRG game:paper lang:en
+[20:10:48] Support card added: Hedge Shredder / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Hazoret's Monument / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Millikin / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Kozilek, the Great Distortion / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Jaxis, the Troublemaker / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Monument to Endurance / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Consider / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Thought Scour / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Support card added: Collector's Vault / source: inferred need: self-mill and discard to fuel theme cards / reason: graveyard fuel support inferred from selected theme cards
+[20:10:48] Synergy validation passed after 0 repair pass(es).
+[20:10:48] Final non-land split: theme=14 support=9 creatures=7
+[20:10:48] Average mana value: 2.78
+[20:10:48] Virtual curve entries: 23
+[20:10:48] Final land count: 20. Reason: 15 + average mana value 2.78 * 1.8, clamped to 15-25
+[20:10:48] Pip counts: {"W":1,"U":7,"B":4,"R":3.0500000000000003,"G":7.35} snowRequired=false snowMatters=false colorlessNeed=true
+[20:10:48] Injected -1x Wastes so colorless {C} costs are always castable.
+[20:10:48] Basic land allocation: none (strict color theme)
+[20:10:48] Scryfall request /cards/search q=%28type%3Aland+%28otag%3A%22five-color%22+OR+oracle%3A%2F%5CbFive-Color%5Cb%2Fi+OR+type%3A%22Five-Color%22%29%29+type%3Aland+-type%3Abasic+id%3C%3DWUBRG+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:48] Scryfall /cards/search status=404 attempt=1/8
+[20:10:48] Scryfall search returned no matches for q=(type:land (otag:"five-color" OR oracle:/\bFive-Color\b/i OR type:"Five-Color")) type:land -type:basic id<=WUBRG game:paper lang:en
+[20:10:48] Theme-related nonbasic lands found: 0
+[20:10:48] Scryfall request /cards/search q=type%3Aland+-type%3Abasic+id%3C%3DWUBRG+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:50] Scryfall /cards/search status=200 attempt=1/8
+[20:10:50] Scryfall search count=175 q=type:land -type:basic id<=WUBRG game:paper lang:en
+[20:10:50] In-color fixing non-basics: 16/16
+[20:10:50] Scryfall cache hit /cards/search
+[20:10:50] Scryfall search count=175 q=type:land -type:basic id<=WUBRG game:paper lang:en
+[20:10:50] Scryfall request /cards/named exact=Plains
+[20:10:50] Scryfall /cards/named status=200 attempt=1/8
+[20:10:50] Land synergy: added Plains required by Glacial Fortress.
+[20:10:50] Scryfall request /cards/search q=%21%22Orzhov+Basilica%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:50] Scryfall /cards/search status=200 attempt=1/8
+[20:10:50] Scryfall search count=25 q=!"Orzhov Basilica" unique:prints game:paper lang:en
+[20:10:50] Alt art rolled for Orzhov Basilica: C17 268
+[20:10:50] Scryfall request /cards/search q=%21%22Stomping+Ground%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:50] Scryfall /cards/search status=200 attempt=1/8
+[20:10:50] Scryfall search count=18 q=!"Stomping Ground" unique:prints game:paper lang:en
+[20:10:50] Alt art rolled for Stomping Ground: EOE 378
+[20:10:50] Scryfall request /cards/search q=%21%22Golgari+Rot+Farm%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:51] Scryfall /cards/search status=200 attempt=1/8
+[20:10:51] Scryfall search count=24 q=!"Golgari Rot Farm" unique:prints game:paper lang:en
+[20:10:51] Alt art rolled for Golgari Rot Farm: IMA 236
+[20:10:51] Scryfall request /cards/search q=%21%22Temple+of+Mystery%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:51] Scryfall /cards/search status=200 attempt=1/8
+[20:10:51] Scryfall search count=32 q=!"Temple of Mystery" unique:prints game:paper lang:en
+[20:10:51] Alt art rolled for Temple of Mystery: PIP 308
+[20:10:51] Scryfall request /cards/search q=%21%22Bountiful+Promenade%22+unique%3Aprints+game%3Apaper+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:51] Scryfall /cards/search status=200 attempt=1/8
+[20:10:51] Scryfall search count=6 q=!"Bountiful Promenade" unique:prints game:paper lang:en
+[20:10:51] Alt art rolled for Bountiful Promenade: BBD 81
+[20:10:51] Non-basic land allocation: Plains, Nomad Outpost, Seat of the Synod, Orzhov Basilica, Battlefield Forge, Fetid Heath, Stomping Ground, Prairie Stream, Boseiju, Who Endures, Temple of Silence, Fortified Village, Golgari Rot Farm, Badlands, Glacial Fortress, Temple of Mystery, Foreboding Ruins, Zagoth Triome, Bountiful Promenade, Game Trail, Cavern of Souls
+[20:10:51] Final whole-deck synergy check: all 43 cards have their synergies satisfied.
+[20:10:51] Final deck counts: nonlands=23 lands=20 total=43
+[20:10:51] ERROR generation attempt 1: Land section contains an invalid non-basic land: Temple of Mystery
+[20:10:51] Rerolled theme "Five-Color" because it could not produce a valid themed 23-card package under the 10-card direct theme minimum: Land section contains an invalid non-basic land: Temple of Mystery
+[20:10:51] Attempt 2: selected theme: Lifelink Counter / tagger / source: Scryfall Oracle Tagger
+[20:10:51] Scryfall request /cards/search q=%28otag%3A%22lifelink-counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi%29+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:52] Scryfall /cards/search status=200 attempt=1/8
+[20:10:52] Scryfall search count=24 q=(otag:"lifelink-counter" OR oracle:/\bLifelink Counter\b/i) game:paper lang:en
+[20:10:52] Theme pool valid cards: 22
+[20:10:52] Theme pool color counts: W=11 U=0 B=11 R=0 G=3
+[20:10:52] Dominance threshold: 6.6
+[20:10:52] Dominant colors: WB
+[20:10:52] Equal-color case: no
+[20:10:52] Multicolor exception: not triggered
+[20:10:52] Final chosen deck colors: BW
+[20:10:52] Color expansion triggered: original=BW valid=19 needed=23 expanded=BGW available=22
+[20:10:52] Scryfall request /cards/search q=%28otag%3A%22lifelink-counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi%29+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:52] Scryfall /cards/search status=200 attempt=1/8
+[20:10:52] Scryfall search count=23 q=(otag:"lifelink-counter" OR oracle:/\bLifelink Counter\b/i) id<=BGW game:paper lang:en
+[20:10:52] On-theme (high EDHREC) card added: Duskfang Mentor / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Grimdancer / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Dust Animus / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Qarsi Revenant / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Aragorn, Company Leader / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Crystalline Giant / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] On-theme (high EDHREC) card added: Unexpected Fangs / source: Scryfall edhrec-rank theme pool / reason: random pick among high edhrec-rated theme cards
+[20:10:52] Scryfall request /cards/search q=%28otag%3A%22lifelink-counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi%29+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=random&dir=asc
+[20:10:53] Scryfall /cards/search status=200 attempt=1/8
+[20:10:53] Scryfall search count=23 q=(otag:"lifelink-counter" OR oracle:/\bLifelink Counter\b/i) id<=BGW game:paper lang:en
+[20:10:53] On-theme (random all-time) card added: Alchemist's Assistant / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: Vitality Hunter / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: Sorin of House Markov // Sorin, Ravenous Neonate / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: T-45 Power Armor / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: Boot Nipper / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: Gilraen, Dúnedain Protector / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme (random all-time) card added: Arwen, Mortal Queen / source: Scryfall random across all MTG history / reason: random theme card from full history
+[20:10:53] On-theme cards selected: 14/14 (target 7 high-edhrec + 7 random all-time)
+[20:10:53] Synergy validation passed after 0 repair pass(es).
+[20:10:53] Support archetype: keyword (3 tiers)
+[20:10:53] Inferred support needs from selected theme cards: counter support, graveyard fuel
+[20:10:53] Scryfall request /cards/search q=%28oracle%3A%22%2B1%2F%2B1+counter%22+OR+keyword%3Aproliferate+OR+otag%3Acounters-matter%29+-type%3Aland+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:55] Scryfall /cards/search status=200 attempt=1/8
+[20:10:55] Scryfall search count=175 q=(oracle:"+1/+1 counter" OR keyword:proliferate OR otag:counters-matter) -type:land id<=BGW game:paper lang:en
+[20:10:55] Support card added: Gaea's Gift / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Cleric Class / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Meren of Clan Nel Toth / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Tribute to the World Tree / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Abzan Falconer / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Mossborn Hydra / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Avenger of Zendikar / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Kodama of the West Tree / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Support card added: Bristly Bill, Spine Sower / source: inferred need: +1/+1 counter sources for theme cards / reason: counter support support inferred from selected theme cards
+[20:10:55] Synergy repair needed: Meren of Clan Nel Toth wants creatures to die but the deck has no sacrifice outlet
+[20:10:55] Scryfall request /cards/search q=%28%28otag%3A%22lifelink-counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi%29%29+%28oracle%3A%22sacrifice+a+creature%3A%22+OR+oracle%3A%22sacrifice+another+creature%22+OR+oracle%3A%22%2C+sacrifice+a+creature%22%29+-type%3Aland+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:55] Scryfall /cards/search status=404 attempt=1/8
+[20:10:55] Scryfall search returned no matches for q=((otag:"lifelink-counter" OR oracle:/\bLifelink Counter\b/i)) (oracle:"sacrifice a creature:" OR oracle:"sacrifice another creature" OR oracle:", sacrifice a creature") -type:land id<=BGW game:paper lang:en
+[20:10:55] Scryfall request /cards/search q=%28oracle%3A%22sacrifice+a+creature%3A%22+OR+oracle%3A%22sacrifice+another+creature%22+OR+oracle%3A%22%2C+sacrifice+a+creature%22%29+-type%3Aland+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:57] Scryfall /cards/search status=200 attempt=1/8
+[20:10:57] Scryfall search count=175 q=(oracle:"sacrifice a creature:" OR oracle:"sacrifice another creature" OR oracle:", sacrifice a creature") -type:land id<=BGW game:paper lang:en
+[20:10:57] Support card added: Ashnod's Altar / source: synergy repair / reason: Scryfall mechanic-presence (a sacrifice outlet to make creatures die on demand) for Meren of Clan Nel Toth
+[20:10:57] Synergy repair needed: Kodama of the West Tree wants a aura you control
+[20:10:57] Scryfall request /cards/search q=%28%28otag%3A%22lifelink-counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi%29%29+type%3Aaura+-type%3Aland+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:57] Scryfall /cards/search status=404 attempt=1/8
+[20:10:57] Scryfall search returned no matches for q=((otag:"lifelink-counter" OR oracle:/\bLifelink Counter\b/i)) type:aura -type:land id<=BGW game:paper lang:en
+[20:10:57] Scryfall request /cards/search q=type%3Aaura+-type%3Aland+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:58] Scryfall /cards/search status=200 attempt=1/8
+[20:10:58] Scryfall search count=175 q=type:aura -type:land id<=BGW game:paper lang:en
+[20:10:58] Support card added: Wild Growth / source: synergy repair / reason: Scryfall type-control (a aura you control) for Kodama of the West Tree
+[20:10:58] Synergy validation passed after 2 repair pass(es).
+[20:10:58] Final non-land split: theme=14 support=9 creatures=16
+[20:10:58] Average mana value: 2.85
+[20:10:58] Virtual curve entries: 23
+[20:10:58] Final land count: 20. Reason: 15 + average mana value 2.85 * 1.8, clamped to 15-25
+[20:10:58] Pip counts: {"W":10.149999999999999,"U":0,"B":11.4,"R":0,"G":11.35} snowRequired=false snowMatters=false colorlessNeed=false
+[20:10:58] Basic land allocation: Swamp, Swamp, Swamp, Swamp, Forest, Forest, Forest, Plains, Plains, Plains
+[20:10:58] Scryfall request /cards/search q=%21%22Swamp%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:58] Scryfall /cards/search status=200 attempt=1/8
+[20:10:58] Scryfall /cards/search:page status=200 attempt=1/8
+[20:10:58] Scryfall search count=350 q=!"Swamp" include:extras unique:prints lang:en
+[20:10:58] Scryfall request /cards/search q=%21%22Forest%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:58] Scryfall /cards/search status=200 attempt=1/8
+[20:10:58] Scryfall /cards/search:page status=200 attempt=1/8
+[20:10:58] Scryfall search count=350 q=!"Forest" include:extras unique:prints lang:en
+[20:10:58] Scryfall request /cards/search q=%21%22Plains%22+include%3Aextras+unique%3Aprints+lang%3Aen&unique=prints&order=released&dir=asc
+[20:10:59] Scryfall /cards/search status=200 attempt=1/8
+[20:10:59] Scryfall /cards/search:page status=200 attempt=1/8
+[20:10:59] Scryfall search count=350 q=!"Plains" include:extras unique:prints lang:en
+[20:10:59] Random basic-land art set: USG
+[20:10:59] Scryfall request /cards/search q=%28type%3Aland+%28otag%3A%22lifelink+counter%22+OR+oracle%3A%2F%5CbLifelink+Counter%5Cb%2Fi+OR+type%3A%22Lifelink+Counter%22%29%29+type%3Aland+-type%3Abasic+id%3C%3DBGW+game%3Apaper+lang%3Aen&unique=cards&order=edhrec&dir=asc
+[20:10:59] Scryfall /cards/search status=429 attempt=1/8
+[20:10:59] Scryfall waiting 800ms before retry
+[20:11:00] Scryfall /cards/search status=429 attempt=2/8
+[20:11:00] Scryfall waiting 1600ms before retry
+[20:11:01] Scryfall /cards/search status=429 attempt=3/8
+[20:11:01] Scryfall waiting 3200ms before retry
+[20:11:04] Scryfall /cards/search status=429 attempt=4/8
+[20:11:04] Scryfall waiting 6400ms before retry
+[20:11:11] Scryfall /cards/search status=429 attempt=5/8
+[20:11:11] Scryfall waiting 12800ms before retry
+[20:11:24] Scryfall /cards/search status=429 attempt=6/8
+[20:11:24] Scryfall waiting 15000ms before retry
+[20:11:39] Scryfall /cards/search status=429 attempt=7/8
+[20:11:39] Scryfall waiting 15000ms before retry
+[20:11:54] Scryfall /cards/search status=429 attempt=8/8
+[20:11:54] ERROR generation attempt 2: Scryfall transient 429 for /cards/search
 ```
