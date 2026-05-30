@@ -83,6 +83,7 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   const sources = new Map();
   const requiredLandCards = []; // land dependencies discovered on non-land cards, handed to the mana base
   const deferredRefs = new Set(); // named refs satisfied by the mana base
+  const exhaustedThresholds = new Set(); // count-threshold reqs we could not fully satisfy (stop re-attempting)
 
   const canAdd = (card) => isPlayableMainDeckCard(card, { allowLands: false, allowGoodstuff: false })
     && colorIdentityWithin(card, colors)
@@ -187,7 +188,14 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   return { nonlands: selected.slice(0, TOTAL), themeCards, supportCards, core: themeCards, random: supportCards, colors, colorResult, sources, requiredLands: requiredLandCards };
 
   // ---- helpers (hoisted) ----
-  function liveIssues() { return openSynergyIssues(selected).filter((i) => !(i.type === 'named-card' && deferredRefs.has(i.missingName.toLowerCase()))); }
+  function thresholdKey(issue) { return `${lower(issue.card)}|${issue.requirement?.type}|${issue.requirement?.count}`; }
+  function liveIssues() {
+    return openSynergyIssues(selected).filter((i) => {
+      if (i.type === 'named-card' && deferredRefs.has(i.missingName.toLowerCase())) return false;
+      if (i.type === 'count-threshold' && exhaustedThresholds.has(thresholdKey(i))) return false;
+      return true;
+    });
+  }
 
   function makeRoom({ avoidCreatures = false } = {}) {
     for (let i = selected.length - 1; i >= 0; i -= 1) {
@@ -228,11 +236,16 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
   }
 
   async function repairSynergies() {
-    for (let pass = 1; pass <= 16; pass += 1) {
+    for (let pass = 1; pass <= 24; pass += 1) {
       const issues = liveIssues();
       if (!issues.length) { logger?.line(`Synergy validation passed after ${pass - 1} repair pass(es).`); return; }
       const issue = issues[0];
       logger?.line(`Synergy repair needed: ${issue.detail}`);
+      // Count-threshold ("control seven or more enchantments"): add matching cards until the count is met.
+      if (issue.type === 'count-threshold') {
+        await satisfyCountThreshold(issue);
+        continue;
+      }
       let target = null;
       let src = '';
       if (issue.type === 'named-card') {
@@ -244,7 +257,7 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
           continue;
         }
         if (fetched && canAdd(fetched) && colorIdentityWithin(fetched, colors)) { target = fetched; src = `required named card for ${issue.card.name}`; }
-      } else if (issue.type === 'tutor-target' || issue.type === 'type-control') {
+      } else if (issue.type === 'tutor-target' || issue.type === 'type-control' || issue.type === 'mechanic-presence') {
         const localHit = localPool.find((c) => issue.requirement.matches(c) && canAdd(c));
         if (localHit) { target = localHit; src = `local ${issue.type} for ${issue.card.name}`; }
         if (!target) {
@@ -263,6 +276,24 @@ export async function selectCardsForTheme(theme, { logger, rng = Math.random } =
     }
     const left = liveIssues();
     if (left.length) logger?.line(`Synergy repair exhausted; remaining: ${left.map((i) => i.detail).join('; ')}`);
+  }
+
+  async function satisfyCountThreshold(issue) {
+    const req = issue.requirement;
+    protectedNames.add(lower(issue.card));
+    const have = () => selected.filter((c) => req.matches(c)).length;
+    const pool = uniqueByOracle([...localPool, ...await fetchTheme(req.query, 'edhrec', 80)]);
+    let added = 0;
+    for (const cand of shuffle(pool, rng)) {
+      if (have() >= req.count) break;
+      if (!req.matches(cand) || !canAdd(cand)) continue;
+      if (selected.length >= TOTAL && !makeRoom({ avoidCreatures: true })) break;
+      if (addCard(cand, { section: 'Support', source: 'synergy repair', reason: `count threshold: ${req.name} for ${issue.card.name}` }, { protect: true })) added += 1;
+    }
+    if (have() < req.count) {
+      exhaustedThresholds.add(thresholdKey(issue)); // stop re-attempting; non-fatal (logged)
+      logger?.line(`Count threshold ${req.name} for ${issue.card.name} only reached ${have()} (+${added} added); leaving as-is.`);
+    }
   }
 
   function dropCard(card) {

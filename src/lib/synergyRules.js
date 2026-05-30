@@ -167,6 +167,43 @@ export function typeControlRequirements(card) {
   return [...found.values()];
 }
 
+// Cards that only come online with a *quantity* of a permanent type: "control seven or more
+// enchantments", "if you control five or more artifacts". The deck must actually field that many.
+const COUNT_THRESHOLD_SKIP = new Set(['land', 'card', 'cards', 'permanent', 'spell']);
+export function countThresholdRequirements(card) {
+  const text = oracleText(card);
+  const found = new Map();
+  const re = /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+or more\s+([a-z][a-z'-]+?)s\b/gi;
+  for (const m of text.matchAll(re)) {
+    const count = NUMBER_WORDS[m[1].toLowerCase()] ?? Number(m[1]);
+    if (!Number.isFinite(count) || count < 3 || count > 12) continue; // 1-2 are trivially met; cap absurd asks
+    const cls = classifyTypeWord(m[2]);
+    if (!cls || COUNT_THRESHOLD_SKIP.has(cls.type)) continue;
+    const { type, kind } = cls;
+    const prev = found.get(type);
+    if (prev && prev.count >= count) continue;
+    found.set(type, {
+      name: `${count}+ ${type}s`, type, count, kind,
+      query: kind === 'token' ? `(type:${type} OR oracle:"create" oracle:"${type}") -type:land` : `type:${type} -type:land`,
+      matches: (c) => (kind === 'token' ? (hasTypeWord(c, type) || createsToken(c, type)) : (hasTypeWord(c, type) && !isLand(c))),
+    });
+  }
+  return [...found.values()];
+}
+
+// Cards that reward *completing a dungeon* (e.g. White Plume Adventurer) need an active venture
+// source so the dungeon mechanic actually functions. "Take the initiative" ventures Undercity.
+const DUNGEON_REWARD_RE = /(completed a dungeon|complete a dungeon|you have completed|you've completed|completes a dungeon)/i;
+const VENTURE_SOURCE_RE = /(venture into the dungeon|takes? the initiative|have the initiative)/i;
+export function dungeonRequirements(card) {
+  if (!DUNGEON_REWARD_RE.test(oracleText(card))) return [];
+  return [{
+    name: 'a dungeon venture source',
+    query: '(oracle:"venture into the dungeon" OR oracle:"the initiative") -type:land',
+    matches: (c) => VENTURE_SOURCE_RE.test(oracleText(c)),
+  }];
+}
+
 export function directSynergyIssues(cards) {
   const issues = [];
   for (const card of cards) {
@@ -176,6 +213,13 @@ export function directSynergyIssues(cards) {
     }
     for (const requirement of typeControlRequirements(card)) {
       if (!cards.some((candidate) => !sameCard(candidate, card) && requirement.matches(candidate))) issues.push({ card, type: 'type-control', detail: `${card.name} wants ${requirement.name}`, requirement });
+    }
+    for (const requirement of countThresholdRequirements(card)) {
+      const have = cards.filter((candidate) => requirement.matches(candidate)).length; // you control the card itself, so count it
+      if (have < requirement.count) issues.push({ card, type: 'count-threshold', detail: `${card.name} needs ${requirement.name} (have ${have})`, requirement, deficit: requirement.count - have });
+    }
+    for (const requirement of dungeonRequirements(card)) {
+      if (!cards.some((candidate) => !sameCard(candidate, card) && requirement.matches(candidate))) issues.push({ card, type: 'mechanic-presence', detail: `${card.name} rewards completing a dungeon but nothing ventures`, requirement });
     }
   }
   return issues;

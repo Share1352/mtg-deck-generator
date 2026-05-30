@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directSynergyIssues, referencesOwnName, copiesFor, isMultiCopyCard, hasTutorTarget, referencedCardNames, typeControlRequirements } from '../lib/synergyRules.js';
+import { directSynergyIssues, referencesOwnName, copiesFor, isMultiCopyCard, hasTutorTarget, referencedCardNames, typeControlRequirements, countThresholdRequirements, dungeonRequirements } from '../lib/synergyRules.js';
 
 function card(name, type_line = 'Instant', oracle_text = '', cmc = 2) {
   return { name, type_line, oracle_text, cmc, layout: 'normal', lang: 'en', color_identity: [], oracle_id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-') };
@@ -70,5 +70,36 @@ describe('direct synergy rules', () => {
     const dragon = card('Shivan Dragon', 'Creature — Dragon', 'Flying');
     expect(hasTutorTarget(dragonTutor, [dragonTutor])).toBe(false);
     expect(hasTutorTarget(dragonTutor, [dragonTutor, dragon])).toBe(true);
+  });
+
+  it('detects "X or more" count thresholds and demands enough of the type (#42)', () => {
+    const haunting = card('Hallowed Haunting', 'Enchantment', 'As long as you control seven or more enchantments, creatures you control have flying and vigilance. Whenever you cast an enchantment spell, create a Spirit Cleric token.');
+    const reqs = countThresholdRequirements(haunting);
+    expect(reqs).toHaveLength(1);
+    expect(reqs[0].type).toBe('enchantment');
+    expect(reqs[0].count).toBe(7);
+    // counts the card itself plus any other enchantments present
+    const issuesShort = directSynergyIssues([haunting]);
+    const ct = issuesShort.find((i) => i.type === 'count-threshold');
+    expect(issuesShort.some((i) => i.type === 'count-threshold')).toBe(true);
+    expect(ct.deficit).toBe(6);
+    // once seven enchantments are present the issue clears
+    const sevenEnch = Array.from({ length: 7 }, (_, i) => card(`Ench ${i}`, 'Enchantment', ''));
+    expect(directSynergyIssues(sevenEnch.concat(haunting)).some((i) => i.type === 'count-threshold')).toBe(false);
+    // trivial 1-2 thresholds and "X or more cards/lands" are ignored
+    expect(countThresholdRequirements(card('X', 'Instant', 'if you control two or more artifacts'))).toHaveLength(0);
+    expect(countThresholdRequirements(card('X', 'Instant', 'if you control five or more lands'))).toHaveLength(0);
+    expect(countThresholdRequirements(card('X', 'Instant', 'draw three or more cards'))).toHaveLength(0);
+  });
+
+  it('demands a venture source for cards that reward completing a dungeon (#42)', () => {
+    const wpa = card('White Plume Adventurer', 'Creature — Orc Cleric', "When this creature enters, you take the initiative. At the beginning of each opponent's upkeep, untap a creature you control. If you've completed a dungeon, untap all creatures you control instead.");
+    expect(dungeonRequirements(wpa)).toHaveLength(1);
+    // alone it is unsatisfied: it rewards completion but needs a *separate* venture source
+    expect(directSynergyIssues([wpa]).some((i) => i.type === 'mechanic-presence')).toBe(true);
+    const venturer = card('Dungeon Descent', 'Sorcery', 'Venture into the dungeon.');
+    expect(directSynergyIssues([wpa, venturer]).some((i) => i.type === 'mechanic-presence')).toBe(false);
+    // a plain creature with no dungeon payoff has no such requirement
+    expect(dungeonRequirements(card('Grizzly Bears', 'Creature — Bear', ''))).toHaveLength(0);
   });
 });
