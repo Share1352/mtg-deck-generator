@@ -1,7 +1,7 @@
 import { APP_VERSION } from './constants.js';
 import { createLogger } from './logger.js';
 import { createRng } from './random.js';
-import { getFrontendThemePool, pickUniformTheme } from './themePool.js';
+import { getFrontendThemePool, pickTheme } from './themePool.js';
 import { selectCardsForTheme } from './cardSelection.js';
 import { buildManaBase } from './manaBase.js';
 import { isColorTheme } from './colorThemes.js';
@@ -43,7 +43,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
 
   let lastError;
   for (let attempt = 1; attempt <= 4; attempt += 1) {
-    const theme = pickUniformTheme(themes, rng);
+    const theme = pickTheme(themes, rng);
     logger.line(`Attempt ${attempt}: selected theme: ${theme.name} / ${theme.category} / source: ${theme.sources.join('+')}`);
     try {
       onProgress(25);

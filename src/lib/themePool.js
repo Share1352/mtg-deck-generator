@@ -1,5 +1,5 @@
-import { BANNED_THEMES, CREATURE_TYPES } from './constants.js';
-import { buildColorThemes } from './colorThemes.js';
+import { BANNED_THEMES, BANNED_THEME_PATTERNS, CREATURE_TYPES } from './constants.js';
+import { buildColorThemes, isColorTheme } from './colorThemes.js';
 import { choice } from './random.js';
 import { catalog } from './scryfallClient.js';
 
@@ -62,7 +62,7 @@ export async function fetchScryfallOracleTagThemes({ logger } = {}) {
   }));
 }
 
-export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
+export function mergeThemeSources(entries, { banned = BANNED_THEMES, bannedPatterns = BANNED_THEME_PATTERNS } = {}) {
   const bannedSet = new Set(banned.map(themeKey));
   const map = new Map();
   let bannedCount = 0;
@@ -70,7 +70,9 @@ export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
     const name = normalizeTheme(item.name);
     if (!name) continue;
     const key = themeKey(name);
-    if (bannedSet.has(key)) { bannedCount += 1; continue; }
+    // color themes are first-party and never name-banned; pattern bans only police external feeds
+    const patternBanned = item.category !== 'color' && bannedPatterns.some((re) => re.test(name));
+    if (bannedSet.has(key) || patternBanned) { bannedCount += 1; continue; }
     const existing = map.get(key);
     if (existing) {
       existing.sources = [...new Set([...existing.sources, item.source])];
@@ -94,6 +96,18 @@ export function mergeThemeSources(entries, { banned = BANNED_THEMES } = {}) {
 export function pickUniformTheme(themes, rng = Math.random) {
   if (!themes?.length) throw new Error('Cannot pick theme: theme pool is empty');
   return choice(themes, rng);
+}
+
+// Color-only themes (#39) share a flat 10% of picks as a single bucket; every other theme/concept
+// splits the remaining 90% with equal probability. Without this, the ~32 color themes would just be
+// 32 more uniform entries among ~1700 and almost never surface.
+export const COLOR_THEME_PROBABILITY = 0.1;
+export function pickTheme(themes, rng = Math.random, { colorProbability = COLOR_THEME_PROBABILITY } = {}) {
+  if (!themes?.length) throw new Error('Cannot pick theme: theme pool is empty');
+  const colorThemes = themes.filter(isColorTheme);
+  const otherThemes = themes.filter((t) => !isColorTheme(t));
+  if (!colorThemes.length || !otherThemes.length) return choice(themes, rng);
+  return rng() < colorProbability ? choice(colorThemes, rng) : choice(otherThemes, rng);
 }
 
 export async function getFrontendThemePool({ logger } = {}) {

@@ -11,6 +11,25 @@ export const BANNED_THEMES = [
   'squad', 'scheme', 'vanguard', 'phenomenon', 'archenemy', 'planechase',
   'hidden agenda', 'commander', 'commander matters'
 ];
+// Pattern bans for theme NAMES. The Scryfall Oracle Tagger feed introduces multiplayer-only
+// concepts under many tag spellings (e.g. "Gains Myriad", "Monarch Matters", "Cycle Ugl
+// Multiplayer"). This app builds 1v1 decks, so any multiplayer/political theme is rejected
+// regardless of exact spelling. Mirrors the BANNED_THEMES intent for the tagger source.
+export const BANNED_THEME_PATTERNS = [
+  /multiplayer/i,
+  /\bmyriad\b/i,
+  /join forces/i,
+  /tempting offer/i,
+  /will of the council/i,
+  /council'?s dilemma/i,
+  /\bparley\b/i,
+  /\bmonarch\b/i,
+  /\bvote\b/i,
+  /\bgoad\b/i,
+  /planechase/i,
+  /archenemy/i,
+  /\bdethrone\b/i,
+];
 export const LOADING_JOKES = [
   'Asking Gracee which card has the prettiest art...',
   'Letting P inspect the opening hand from the bed...',
