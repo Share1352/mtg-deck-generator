@@ -2,6 +2,16 @@
 
 A one-button Vite + React app that forges a small casual 1v1 Magic: The Gathering theme deck. It is **not Commander**. The app picks a completely random theme/tribe/keyword/mechanic from online card databases, builds 23 non-land cards faithful to that theme, adds 15-25 lands, displays card images, exports a decklist, and exposes a full debug log.
 
+## Review this first (health check)
+
+Every push to `main` runs a **real end-to-end generation** in CI and commits the resulting deck list + full log to **[`reports/latest-deck.md`](reports/latest-deck.md)**. Before starting any new feature, open that file and confirm:
+
+- **Status** is `OK ✅` (not `FAILED ❌`),
+- the deck list looks sane (23 non-lands + 15–25 lands, on-theme, in color identity),
+- the log ends with `Final whole-deck synergy check: all N cards have their synergies satisfied`.
+
+If the report shows a failure or something off, fix that before building on top. The report is produced by `scripts/generate-report.mjs` (`node scripts/generate-report.mjs` to run it locally).
+
 ## Online only
 
 This app **does not store cards offline**. It calls live online card databases for everything:

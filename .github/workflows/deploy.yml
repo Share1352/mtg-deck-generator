@@ -3,6 +3,10 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: ["main"]
+    # The report job commits reports/latest-deck.md back to main; ignore that
+    # path so the auto-commit does not re-trigger this workflow (no loop).
+    paths-ignore:
+      - "reports/**"
   workflow_dispatch:
 
 permissions:
@@ -59,3 +63,42 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Run a real end-to-end generation against the just-deployed code and commit
+  # the deck list + log to reports/latest-deck.md as the first thing to review
+  # next session. Runs after deploy so a flaky Scryfall blip never blocks a deploy.
+  report:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate deck report
+        id: gen
+        run: node scripts/generate-report.mjs
+
+      - name: Commit report
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/latest-deck.md
+          if git diff --cached --quiet; then
+            echo "No report changes to commit."
+          else
+            git commit -m "Auto-log latest generation report [skip ci]"
+            git pull --rebase --autostash origin main || true
+            git push
+          fi
