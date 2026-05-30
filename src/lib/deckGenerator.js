@@ -10,6 +10,12 @@ import { validateDeck } from './validation.js';
 import { finalizeDeckSynergies } from './deckSynergyCheck.js';
 import { ScryfallError } from './scryfallClient.js';
 
+// The theme pool is dominated by Scryfall Oracle Tagger functional tags (~5k), many of which are too
+// narrow to fill the 10-card direct-theme minimum (e.g. set-specific cycle tags, single-card art tags).
+// Each attempt re-picks a theme and rerolls if the theme can't build, so enough attempts guarantees the
+// run lands on a buildable theme. Four was too few given the pool composition and made generation flaky.
+const MAX_THEME_ATTEMPTS = 12;
+
 function isHardOutage(error) {
   if (error instanceof ScryfallError && (error.status === 0 || error.status >= 500 || error.status === 429)) return true;
   if (error && typeof error.message === 'string' && /Scryfall catalog/i.test(error.message)) return true;
@@ -42,7 +48,7 @@ export async function generateDeck({ seed = Date.now(), onProgress = () => {}, o
   onProgress(15);
 
   let lastError;
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
+  for (let attempt = 1; attempt <= MAX_THEME_ATTEMPTS; attempt += 1) {
     const theme = pickTheme(themes, rng);
     logger.line(`Attempt ${attempt}: selected theme: ${theme.name} / ${theme.category} / source: ${theme.sources.join('+')}`);
     try {
